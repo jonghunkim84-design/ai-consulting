@@ -1,4 +1,4 @@
-import OpenAI from 'openai'
+import OpenAI, { toFile } from 'openai'
 import { IncomingForm } from 'formidable'
 import fs from 'fs'
 import path from 'path'
@@ -38,11 +38,10 @@ export default async function handler(req, res) {
     const ext = path.extname(audioFile.originalFilename || '.mp3') || '.mp3'
     const safeName = 'audio' + ext
 
-    const fileStream = fs.createReadStream(filePath)
-    fileStream.path = safeName
+    const file = await toFile(fs.createReadStream(filePath), safeName)
 
     const transcription = await openai.audio.transcriptions.create({
-      file: fileStream,
+      file,
       model: 'whisper-1',
       language: 'ko',
     })
