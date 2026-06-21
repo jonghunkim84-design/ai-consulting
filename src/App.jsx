@@ -807,7 +807,8 @@ const row = {
 
               try {
                 const formData = new FormData()
-                formData.append('audio', file)
+                const ext = file.name.split('.').pop() || 'mp3'
+                formData.append('audio', file, `audio.${ext}`)
 
                 const res = await fetch('/api/transcribe', {
                   method: 'POST',
