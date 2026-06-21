@@ -16,8 +16,8 @@ const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(-
 const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F0B"},"보통":{bg:"#E6F1FB",c:"#185FA5"},"낮음":{bg:"#F1EFE8",c:"#5F5E5A"}};
 
 async function claude(sys,usr,maxTok=1200){
-  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}]})});
-  const d=await r.json();return d.content?.[0]?.text||"";
+  const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,user:usr,max_tokens:maxTok})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||"API error");return d.text||"";
 }
 
 // ── UI 원자 컴포넌트 ──
