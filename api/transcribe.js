@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { IncomingForm } from 'formidable'
 import fs from 'fs'
+import path from 'path'
 
 export const config = {
   api: { bodyParser: false }
@@ -16,7 +17,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = new IncomingForm({ keepExtensions: true })
+    const form = new IncomingForm({
+      keepExtensions: true,
+      maxFileSize: 25 * 1024 * 1024,
+    })
 
     const [, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
@@ -25,16 +29,20 @@ export default async function handler(req, res) {
       })
     })
 
-    const audioFile = files.audio?.[0] || files.audio
+    const audioFile = Array.isArray(files.audio) ? files.audio[0] : files.audio
     if (!audioFile) {
       return res.status(400).json({ error: '파일이 없습니다' })
     }
 
     const filePath = audioFile.filepath || audioFile.path
-    const fileName = audioFile.originalFilename || audioFile.name || 'audio.mp3'
+    const ext = path.extname(audioFile.originalFilename || '.mp3') || '.mp3'
+    const safeName = 'audio' + ext
+
+    const fileStream = fs.createReadStream(filePath)
+    fileStream.path = safeName
 
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(filePath),
+      file: fileStream,
       model: 'whisper-1',
       language: 'ko',
     })
