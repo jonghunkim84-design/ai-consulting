@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from './supabase.js'
 
 const C={blue:"#185FA5",blueBg:"#E6F1FB",blueLt:"#B5D4F4",teal:"#0F6E56",tealBg:"#E1F5EE",tealLt:"#9FE1CB",purple:"#534AB7",purpleBg:"#EEEDFE",success:"#3B6D11",successBg:"#EAF3DE",warn:"#854F0B",warnBg:"#FAEEDA",danger:"#A32D2D",dangerBg:"#FCEBEB",gray:"#5F5E5A",grayBg:"#F1EFE8"};
 const INDUSTRIES=["카페/베이커리","식당/요식업","소매/유통","서비스업(미용/학원)","제조/가공업","기타"];
@@ -535,14 +536,83 @@ export default function App(){
   const [copied,setCopied]=useState("");
   const fileRef=useRef();
 
+  // ── Supabase 연동 ──
+  const loadClients = async () => {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) { console.error('로드 실패:', error); return; }
+    const parsed = (data || []).map(row => ({
+      ...row.data,
+      id: row.id,
+      name: row.name,
+      industry: row.industry,
+      size: row.size,
+      region: row.region,
+      aiLevel: row.ai_level,
+      status: row.status,
+      phase: row.phase,
+      step: row.step,
+      phasesDone: row.phases_done || [false, false, false],
+    }))
+    setClients(parsed)
+  }
+
+  const saveClient = async (client) => {
+    const row = {
+      id: client.id,
+      name: client.name || '',
+      industry: client.industry || '',
+      size: client.size || '',
+      region: client.region || '',
+      ai_level: client.aiLevel || '',
+      status: client.status || 'discovery',
+      phase: client.phase || 0,
+      step: client.step || 0,
+      phases_done: client.phasesDone || [false, false, false],
+      data: client,
+    }
+    const { error } = await supabase
+      .from('clients')
+      .upsert(row, { onConflict: 'id' })
+    if (error) console.error('저장 실패:', error)
+  }
+
+  const deleteClient = async (id) => {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id)
+    if (error) console.error('삭제 실패:', error)
+  }
+
+  useEffect(() => { loadClients() }, [])
+
   const active=clients.find(c=>c.id===activeId);
-  const upd=p=>setClients(cs=>cs.map(c=>c.id===activeId?{...c,...p}:c));
+  const upd = p => {
+    setClients(cs => {
+      const next = cs.map(c => {
+        if (c.id !== activeId) return c
+        const updated = { ...c, ...p }
+        saveClient(updated)
+        return updated
+      })
+      return next
+    })
+  }
   const updN=(k,p)=>setClients(cs=>cs.map(c=>c.id===activeId?{...c,[k]:{...c[k],...p}}:c));
   const aiGet=k=>aiSt[k]||{loading:false,result:null,error:false};
   const aiSet=(k,p)=>setAiSt(a=>({...a,[k]:{...a[k],...p}}));
   const runAI=async(k,sys,usr)=>{aiSet(k,{loading:true,result:null,error:false});try{aiSet(k,{loading:false,result:await claude(sys,usr),error:false});}catch{aiSet(k,{loading:false,result:null,error:true});}};
 
-  const addClient=()=>{const c=initClient();setClients(cs=>[...cs,c]);setActiveId(c.id);setView("client");};
+  const addClient = () => {
+    const c = initClient()
+    setClients(cs => [...cs, c])
+    setActiveId(c.id)
+    setView("client")
+    saveClient(c)
+  };
   const pc=ph=>[C.blue,C.teal,C.purple][ph]||C.blue;
   const pb=ph=>[C.blueBg,C.tealBg,C.purpleBg][ph]||C.blueBg;
 
@@ -605,6 +675,19 @@ export default function App(){
             <div style={{fontSize:12,fontWeight:500,color:col,marginBottom:4}}>{prg}%</div>
             <div style={{width:60,height:3,background:"var(--color-background-secondary)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${prg}%`,background:col,borderRadius:2}}/></div>
           </div>
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              if (window.confirm(`${c.name} 고객을 삭제할까요?`)) {
+                deleteClient(c.id)
+                setClients(cs => cs.filter(x => x.id !== c.id))
+              }
+            }}
+            style={{fontSize:11,color:C.danger,background:"none",border:"none",
+              cursor:"pointer",fontFamily:"inherit",marginLeft:8,flexShrink:0}}
+          >
+            삭제
+          </button>
         </div>
       </div>;
     })}
