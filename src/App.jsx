@@ -514,7 +514,7 @@ const initClient=()=>({
   status:"discovery",phase:0,step:0,phasesDone:[false,false,false],
   hypothesis:[],directInfo:"",researchResult:"",interviewQ:"",
   prepCheck:{},iceCheck:{},iceMemo:"",
-  notes:{q1:"",q2:"",q3:"",extra:""},audioFileName:"",
+  notes:{q1:"",q2:"",q3:"",extra:""},audioFileName:"",transcribing:false,transcript:"",
   painPoints:[{title:"",type:"",impact:"",solution:""}],finalCheck:{},
   reconfirmNotes:"",additionalPP:"",reconfirmCheck:{},
   budget:"",timeline:"",
@@ -778,7 +778,55 @@ const row = {
         </Panel>
         <Panel title="녹음 파일 업로드" icon="🎙">
           {!active.audioFileName?<div onClick={()=>fileRef.current?.click()} style={{border:"1.5px dashed var(--color-border-secondary)",borderRadius:12,padding:"1.5rem",textAlign:"center",cursor:"pointer",background:"var(--color-background-secondary)"}}><div style={{fontSize:28,marginBottom:6}}>⬆</div><div style={{fontSize:13,color:"var(--color-text-secondary)"}}>녹음 파일 업로드 (MP3, M4A, WAV)</div></div>:<div style={{display:"flex",alignItems:"center",gap:10,padding:12,background:C.successBg,borderRadius:8}}><span style={{fontSize:20}}>🎵</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.success}}>{active.audioFileName}</div></div><button onClick={()=>upd({audioFileName:""})} style={{background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button></div>}
-          <input ref={fileRef} type="file" accept="audio/*,video/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])upd({audioFileName:e.target.files[0].name});}}/>
+          {active.transcribing && (
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:12,
+              background:"#f9fafb",borderRadius:8,marginTop:8,fontSize:13,color:"#6b7280"}}>
+              ⟳ Whisper AI가 음성을 텍스트로 변환하고 있습니다...
+            </div>
+          )}
+          {active.transcript && !active.transcribing && (
+            <div style={{marginTop:10}}>
+              <div style={{fontSize:12,fontWeight:500,color:"#111",marginBottom:6}}>
+                📝 음성 변환 결과 (자동 생성)
+              </div>
+              <div style={{background:"#1a1a2e",borderRadius:8,padding:"12px 14px",
+                fontSize:13,color:"#90ee90",lineHeight:1.8,whiteSpace:"pre-wrap",
+                maxHeight:200,overflowY:"auto"}}>
+                {active.transcript}
+              </div>
+              <div style={{fontSize:12,color:"#6b7280",marginTop:6}}>
+                💡 위 내용이 STEP 4 AI 분석에 자동으로 활용됩니다.
+              </div>
+            </div>
+          )}
+          <input ref={fileRef} type="file" accept="audio/*,video/*" style={{display:"none"}}
+            onChange={async e => {
+              const file = e.target.files[0]
+              if (!file) return
+              upd({ audioFileName: file.name, transcribing: true, transcript: '' })
+
+              try {
+                const formData = new FormData()
+                formData.append('audio', file)
+
+                const res = await fetch('/api/transcribe', {
+                  method: 'POST',
+                  body: formData,
+                })
+                const data = await res.json()
+
+                if (data.text) {
+                  upd({ transcript: data.text, transcribing: false })
+                } else {
+                  upd({ transcribing: false })
+                  alert('변환 실패: ' + (data.error || '알 수 없는 오류'))
+                }
+              } catch (err) {
+                upd({ transcribing: false })
+                alert('변환 중 오류 발생: ' + err.message)
+              }
+            }}
+          />
         </Panel>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="blue" onClick={()=>next(3)}>완료 → AI 분석 →</Btn></div>
       </>}
@@ -790,7 +838,7 @@ const row = {
             {[["고객",active.name],["업종",active.industry],["AI 친숙도",active.aiLevel],["녹음파일",active.audioFileName||"없음"]].map(([l,v])=><div key={l} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:2}}>{l}</div><div style={{fontSize:13,fontWeight:500}}>{v||"미입력"}</div></div>)}
           </div>
           <Btn v="blue" onClick={()=>runAI("d_an","소상공인 인터뷰 분석. 순수 JSON만 출력.\n{\"painPoints\":[{\"rank\":1,\"title\":\"제목\",\"type\":\"반복업무자동화|정보부족분석|고객응대자동화\",\"impact\":\"영향1줄\",\"solution\":\"솔루션방향1줄\"}],\"summary\":\"요약2줄\",\"nextAction\":\"권고1줄\"}",
-            `고객:${active.name} 업종:${active.industry} AI친숙도:${active.aiLevel}\n가설:${(active.hypothesis||[]).join(",")}\nQ1:${active.notes.q1}\nQ2:${active.notes.q2}\nQ3:${active.notes.q3}\n추가:${active.notes.extra}`
+            `고객:${active.name} 업종:${active.industry} AI친숙도:${active.aiLevel}\n가설:${(active.hypothesis||[]).join(",")}\nQ1:${active.notes.q1}\nQ2:${active.notes.q2}\nQ3:${active.notes.q3}\n추가:${active.notes.extra}\n${active.transcript?"[녹음 파일 변환 텍스트]\n"+active.transcript:""}`
           )} disabled={aiGet("d_an").loading}>{aiGet("d_an").loading?"⟳ 분석 중...":"✨ AI 분석 실행"}</Btn>
           {(()=>{const a=aiGet("d_an");if(a.loading)return <AIBox loading={true} color={C.blue}/>;if(a.error)return <AIBox error={true} color={C.blue}/>;if(a.result){let p=null;try{p=JSON.parse(a.result.replace(/```json|```/g,"").trim());}catch{}if(p?.painPoints){if(active.painPoints.every(pp=>!pp.title))setTimeout(()=>upd({painPoints:p.painPoints.map(pp=>({title:pp.title||"",type:pp.type||"",impact:pp.impact||"",solution:pp.solution||""}))}),0);return <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:8}}>✦ AI 분석 완료</div>{p.summary&&<div style={{marginBottom:10,paddingBottom:10,borderBottom:"0.5px solid var(--color-border-tertiary)"}}>{p.summary}</div>}{p.painPoints.map((pp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{pp.rank} {pp.title} <Chip label={pp.type} color={C.blue} bg={C.blueBg}/></div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>영향: {pp.impact}</div><div style={{fontSize:12,color:C.success}}>→ {pp.solution}</div></div>)}{p.nextAction&&<div style={{fontSize:12,color:C.warn,marginTop:6}}>→ {p.nextAction}</div>}</div>;}return <AIBox loading={false} result={a.result} error={false} color={C.blue}/>;}return null;})()}
         </Panel>
