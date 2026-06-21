@@ -1,4 +1,4 @@
-import OpenAI, { toFile } from 'openai'
+﻿import OpenAI, { toFile } from 'openai'
 import { IncomingForm } from 'formidable'
 import fs from 'fs'
 import path from 'path'
@@ -13,13 +13,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Step 1: API 키 확인
-    const apiKey = process.env.OPENAI_API_KEY || ''
-    console.log('STEP1 apiKey len:', apiKey.length, 'charCodes[0..3]:', [...apiKey.slice(0,4)].map(c=>c.charCodeAt(0)))
+    // BOM(u+FEFF) 및 공백 제거
+    const apiKey = (process.env.OPENAI_API_KEY || '').replace(/^﻿/, '').trim()
+    console.log('STEP1 apiKey len:', apiKey.length, 'char0 code:', apiKey.charCodeAt(0))
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'OPENAI_API_KEY가 설정되지 않았습니다' })
+    }
 
     const openai = new OpenAI({ apiKey })
 
-    // Step 2: 파일 파싱
     const form = new IncomingForm({
       keepExtensions: true,
       maxFileSize: 25 * 1024 * 1024,
@@ -38,17 +41,13 @@ export default async function handler(req, res) {
     }
 
     const filePath = audioFile.filepath || audioFile.path
-    const origName = audioFile.originalFilename || 'audio.mp3'
-    const ext = path.extname(origName) || '.mp3'
+    const ext = path.extname(audioFile.originalFilename || '.mp3') || '.mp3'
     const safeName = 'audio' + ext
-    console.log('STEP2 filePath:', filePath, 'safeName:', safeName, 'size:', audioFile.size)
+    console.log('STEP2 filePath:', filePath, 'safeName:', safeName)
 
-    // Step 3: toFile 변환
     const file = await toFile(fs.createReadStream(filePath), safeName)
-    console.log('STEP3 toFile ok, name:', file.name)
+    console.log('STEP3 toFile ok')
 
-    // Step 4: Whisper API 호출
-    console.log('STEP4 calling Whisper...')
     const transcription = await openai.audio.transcriptions.create({
       file,
       model: 'whisper-1',
@@ -59,7 +58,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ text: transcription.text })
 
   } catch (error) {
-    console.error('Whisper 오류:', error.message, error.stack?.split('\n')[1])
+    console.error('Whisper 오류:', error.message)
     return res.status(500).json({ error: error.message })
   }
 }
