@@ -560,7 +560,7 @@ export default function App(){
   }
 
   const saveClient = async (client) => {
-    const row = {
+const row = {
       id: client.id,
       name: client.name || '',
       industry: client.industry || '',
