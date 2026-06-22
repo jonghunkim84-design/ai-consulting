@@ -218,6 +218,51 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
 const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3});
 const newSprint=(n)=>({id:Date.now()+Math.random(),num:n,name:`Sprint ${n}`,goal:"",start:"",end:"",tasks:[]});
 
+function PMResources({pm,updPM}){
+  const res=pm.resources||[];
+  const allTasks=pm.sprints.flatMap(s=>s.tasks||[]);
+  const updRes=(id,patch)=>updPM({resources:res.map(r=>r.id===id?{...r,...patch}:r)});
+  const byName={};allTasks.forEach(t=>{if(!byName[t.assignee])byName[t.assignee]=[];byName[t.assignee].push(t);});
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:500}}>리소스 ({res.length}명)</div>
+      <Btn sm v="ghost" onClick={()=>updPM({resources:[...res,{id:Date.now(),name:"",role:"컨설턴트(본인)",avail:100}]})}>+ 추가</Btn>
+    </div>
+    {res.map(r=>{
+      const tasks=byName[r.name]||byName[r.role]||[];
+      const aPts=tasks.reduce((a,t)=>a+(t.pts||0),0);
+      const dPts2=tasks.filter(t=>t.status==="완료").reduce((a,t)=>a+(t.pts||0),0);
+      const load=pm.velocity>0?Math.round(aPts/pm.velocity*100):0;
+      const lc=load>100?C.danger:load>80?C.warn:C.success;
+      return <div key={r.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,padding:"12px",marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 80px",gap:8,marginBottom:8}}>
+          <div><FL c="이름" mt={0}/><Inp value={r.name} onChange={v=>updRes(r.id,{name:v})} placeholder="담당자 이름"/></div>
+          <div><FL c="역할" mt={0}/><Sel value={r.role} onChange={v=>updRes(r.id,{role:v})} options={ROLES}/></div>
+          <div><FL c="가용률%" mt={0}/><input type="number" value={r.avail} min={0} max={100} onChange={e=>updRes(r.id,{avail:Number(e.target.value)})} style={{width:"100%",padding:"8px 6px",borderRadius:8,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
+        </div>
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
+          <span style={{fontSize:12}}>할당 <strong>{aPts}pt</strong></span>
+          <span style={{fontSize:12}}>완료 <strong style={{color:C.success}}>{dPts2}pt</strong></span>
+          <span style={{fontSize:12}}>부하 <strong style={{color:lc}}>{load}%</strong></span>
+          {load>100&&<span style={{fontSize:11,background:C.dangerBg,color:C.danger,padding:"2px 8px",borderRadius:10}}>⚠ 과부하</span>}
+        </div>
+        <div style={{height:6,background:"var(--color-background-secondary)",borderRadius:3,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${Math.min(load,100)}%`,background:lc,borderRadius:3}}/>
+        </div>
+        {tasks.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:4}}>{tasks.map(t=><span key={t.id} style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:STATUS_COLOR[t.status]?.bg||"var(--color-background-secondary)",color:STATUS_COLOR[t.status]?.c||"var(--color-text-secondary)"}}>{t.title||"(없음)"}({t.pts}pt)</span>)}</div>}
+        {res.length>1&&<button onClick={()=>updPM({resources:res.filter(r2=>r2.id!==r.id)})} style={{marginTop:8,fontSize:11,color:C.danger,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>삭제</button>}
+      </div>;
+    })}
+    <Panel title="팀 속도 (Velocity)" icon="⚡" style={{marginTop:8}}>
+      <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:8}}>스프린트당 처리 가능한 스토리 포인트 기준값</div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <input type="range" min={5} max={100} step={5} value={pm.velocity} onChange={e=>updPM({velocity:Number(e.target.value)})} style={{flex:1}}/>
+        <span style={{fontSize:14,fontWeight:500,color:C.purple,minWidth:48}}>{pm.velocity}pt</span>
+      </div>
+    </Panel>
+  </div>;
+}
+
 function PMPanel({cl,upd}){
   const [view,setView]=useState("board");
   const [planL,setPlanL]=useState(false);
@@ -301,10 +346,11 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
       <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
-      {SPRINT_STATUS.map(st=>{
+      {SPRINT_STATUS.map((st,stIdx)=>{
         const tasks=(sp.tasks||[]).filter(t=>t.status===st);
         const sc=STATUS_COLOR[st]||{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"};
-        return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100}}>
+        return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100,position:"relative"}}>
+          {stIdx>0&&<div style={{position:"absolute",left:-5,top:8,bottom:8,width:0,borderLeft:"1px dashed #DEDEDE"}}/>}
           <div style={{fontSize:11,fontWeight:500,color:sc.c,background:sc.bg,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:8}}>{st}({tasks.length})</div>
           {tasks.map(task=><div key={task.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:6,padding:"7px",marginBottom:5}}>
             <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{task.title||"(제목없음)"}</div>
@@ -373,7 +419,15 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
           </div>
         </div>;
       })}
-      <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",marginTop:4}}>
+        <div style={{width:130,flexShrink:0}}/>
+        <div style={{flex:1,position:"relative",height:16}}>
+          <span style={{position:"absolute",left:0,fontSize:10,color:"var(--color-text-secondary)"}}>{mn.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
+          <span style={{position:"absolute",left:"50%",transform:"translateX(-50%)",fontSize:10,color:"var(--color-text-secondary)"}}>{new Date((mn.getTime()+mx.getTime())/2).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
+          <span style={{position:"absolute",right:0,fontSize:10,color:"var(--color-text-secondary)"}}>{mx.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:12,marginTop:6,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.danger}}><div style={{width:14,borderTop:`2px dashed ${C.danger}`}}/>오늘</div>
         {COLS.slice(0,swd.length).map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:14,height:8,background:c,borderRadius:2}}/>{swd[i]?.name}</div>)}
       </div>
@@ -411,57 +465,14 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
         <text x={px(elapsed)} y={P.t-4} textAnchor="middle" fontSize="10" fill={C.danger}>오늘</text>
         <line x1={P.l} y1={P.t} x2={P.l} y2={P.t+IH} stroke="var(--color-border-secondary)" strokeWidth="0.5"/>
         <line x1={P.l} y1={P.t+IH} x2={P.l+IW} y2={P.t+IH} stroke="var(--color-border-secondary)" strokeWidth="0.5"/>
-        <text x={P.l+IW} y={P.t+IH+14} textAnchor="end" fontSize="10" fill="var(--color-text-secondary)">{totalDays}일</text>
+        <text x={P.l} y={P.t+IH+14} textAnchor="start" fontSize="10" fill="var(--color-text-secondary)">{start.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
+        <text x={P.l+IW/2} y={P.t+IH+14} textAnchor="middle" fontSize="10" fill="var(--color-text-secondary)">{new Date((start.getTime()+end.getTime())/2).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
+        <text x={P.l+IW} y={P.t+IH+14} textAnchor="end" fontSize="10" fill="var(--color-text-secondary)">{end.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
         <line x1={P.l+IW-100} y1={P.t+8} x2={P.l+IW-82} y2={P.t+8} stroke={C.gray} strokeWidth="1.5" strokeDasharray="5 3"/>
         <text x={P.l+IW-77} y={P.t+12} fontSize="10" fill="var(--color-text-secondary)">이상선</text>
         <line x1={P.l+IW-40} y1={P.t+8} x2={P.l+IW-22} y2={P.t+8} stroke={C.blue} strokeWidth="2"/>
         <text x={P.l+IW-17} y={P.t+12} fontSize="10" fill="var(--color-text-secondary)">실제</text>
       </svg>
-    </div>;
-  };
-
-  // 리소스 관리
-  const Resources=()=>{
-    const res=pm.resources||[];
-    const updRes=(id,patch)=>updPM({resources:res.map(r=>r.id===id?{...r,...patch}:r)});
-    const byName={};allTasks.forEach(t=>{if(!byName[t.assignee])byName[t.assignee]=[];byName[t.assignee].push(t);});
-    return <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:500}}>리소스 ({res.length}명)</div>
-        <Btn sm v="ghost" onClick={()=>updPM({resources:[...res,{id:Date.now(),name:"",role:"컨설턴트(본인)",avail:100}]})}>+ 추가</Btn>
-      </div>
-      {res.map(r=>{
-        const tasks=byName[r.name]||byName[r.role]||[];
-        const aPts=tasks.reduce((a,t)=>a+(t.pts||0),0);
-        const dPts2=tasks.filter(t=>t.status==="완료").reduce((a,t)=>a+(t.pts||0),0);
-        const load=pm.velocity>0?Math.round(aPts/pm.velocity*100):0;
-        const lc=load>100?C.danger:load>80?C.warn:C.success;
-        return <div key={r.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,padding:"12px",marginBottom:10}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 80px",gap:8,marginBottom:8}}>
-            <div><FL c="이름" mt={0}/><Inp value={r.name} onChange={v=>updRes(r.id,{name:v})} placeholder="담당자 이름"/></div>
-            <div><FL c="역할" mt={0}/><Sel value={r.role} onChange={v=>updRes(r.id,{role:v})} options={ROLES}/></div>
-            <div><FL c="가용률%" mt={0}/><input type="number" value={r.avail} min={0} max={100} onChange={e=>updRes(r.id,{avail:Number(e.target.value)})} style={{width:"100%",padding:"8px 6px",borderRadius:8,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:13,fontFamily:"inherit",boxSizing:"border-box"}}/></div>
-          </div>
-          <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:6}}>
-            <span style={{fontSize:12}}>할당 <strong>{aPts}pt</strong></span>
-            <span style={{fontSize:12}}>완료 <strong style={{color:C.success}}>{dPts2}pt</strong></span>
-            <span style={{fontSize:12}}>부하 <strong style={{color:lc}}>{load}%</strong></span>
-            {load>100&&<span style={{fontSize:11,background:C.dangerBg,color:C.danger,padding:"2px 8px",borderRadius:10}}>⚠ 과부하</span>}
-          </div>
-          <div style={{height:6,background:"var(--color-background-secondary)",borderRadius:3,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${Math.min(load,100)}%`,background:lc,borderRadius:3}}/>
-          </div>
-          {tasks.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:4}}>{tasks.map(t=><span key={t.id} style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:STATUS_COLOR[t.status]?.bg||"var(--color-background-secondary)",color:STATUS_COLOR[t.status]?.c||"var(--color-text-secondary)"}}>{t.title||"(없음)"}({t.pts}pt)</span>)}</div>}
-          {res.length>1&&<button onClick={()=>updPM({resources:res.filter(r2=>r2.id!==r.id)})} style={{marginTop:8,fontSize:11,color:C.danger,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>삭제</button>}
-        </div>;
-      })}
-      <Panel title="팀 속도 (Velocity)" icon="⚡" style={{marginTop:8}}>
-        <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:8}}>스프린트당 처리 가능한 스토리 포인트 기준값</div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <input type="range" min={5} max={100} step={5} value={pm.velocity} onChange={e=>updPM({velocity:Number(e.target.value)})} style={{flex:1}}/>
-          <span style={{fontSize:14,fontWeight:500,color:C.purple,minWidth:48}}>{pm.velocity}pt</span>
-        </div>
-      </Panel>
     </div>;
   };
 
@@ -504,7 +515,7 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     {view==="board"&&<Board/>}
     {view==="gantt"&&<Gantt/>}
     {view==="burndown"&&<Burndown/>}
-    {view==="resources"&&<Resources/>}
+    {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
   </div>;
 }
 
