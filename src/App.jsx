@@ -32,10 +32,10 @@ async function claude(sys,usr,maxTok=1500,retries=2){
 }
 
 // ── UI 원자 컴포넌트 ──
-const FL=({c,mt=12})=><div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4,marginTop:mt,fontWeight:500}}>{c}</div>;
-const Inp=({value,onChange,placeholder,style={}})=><input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box",fontFamily:"inherit",...style}}/>;
-const TA=({value,onChange,placeholder,rows=4})=><textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",resize:"vertical",boxSizing:"border-box",fontFamily:"inherit"}}/>;
-const Sel=({value,onChange,options,placeholder})=><select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box",fontFamily:"inherit"}}><option value="">{placeholder||"선택"}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;
+const FL=({c,mt=12,req,opt})=><div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:4,marginTop:mt,fontWeight:500,display:"flex",alignItems:"center",gap:5}}>{c}{req&&<span style={{fontSize:10,background:"#FCEBEB",color:"#A32D2D",padding:"1px 5px",borderRadius:4,fontWeight:600}}>필수</span>}{opt&&<span style={{fontSize:10,background:"var(--color-background-secondary)",color:"var(--color-text-secondary)",padding:"1px 5px",borderRadius:4}}>선택</span>}</div>;
+const Inp=({value,onChange,placeholder,style={},req})=>{const mt=req&&!value;return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:`0.5px solid ${mt?"#FFB3B3":"var(--color-border-secondary)"}`,background:mt?"#FFF5F5":"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box",fontFamily:"inherit",...style}}/>;};
+const TA=({value,onChange,placeholder,rows=4,req})=>{const mt=req&&!value;return <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:`0.5px solid ${mt?"#FFB3B3":"var(--color-border-secondary)"}`,background:mt?"#FFF5F5":"var(--color-background-primary)",color:"var(--color-text-primary)",resize:"vertical",boxSizing:"border-box",fontFamily:"inherit"}}/>;};
+const Sel=({value,onChange,options,placeholder,req})=>{const mt=req&&!value;return <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:`0.5px solid ${mt?"#FFB3B3":"var(--color-border-secondary)"}`,background:mt?"#FFF5F5":"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box",fontFamily:"inherit"}}><option value="">{placeholder||"선택"}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>;};
 
 function Btn({children,onClick,v="def",disabled,sm,style={}}){
   const vs={def:{background:"transparent",color:"var(--color-text-primary)",border:"0.5px solid var(--color-border-secondary)"},blue:{background:C.blue,color:"#fff",border:`1px solid ${C.blue}`},teal:{background:C.teal,color:"#fff",border:`1px solid ${C.teal}`},purple:{background:C.purple,color:"#fff",border:`1px solid ${C.purple}`},success:{background:C.success,color:"#fff",border:`1px solid ${C.success}`},ghost:{background:"var(--color-background-secondary)",color:"var(--color-text-secondary)",border:"0.5px solid var(--color-border-tertiary)"},danger:{background:C.danger,color:"#fff",border:`1px solid ${C.danger}`}};
@@ -156,8 +156,8 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
   return <>
     <Panel title="고객 조건" icon="⚖️">
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <div><FL c="예산 범위" mt={0}/><Sel value={cl.budget||""} onChange={v=>upd({budget:v})} options={BUDGETS} placeholder="예산 선택"/></div>
-        <div><FL c="희망 일정" mt={0}/><Sel value={cl.timeline||""} onChange={v=>upd({timeline:v})} options={TIMELINES} placeholder="일정 선택"/></div>
+        <div><FL c="예산 범위" mt={0} req/><Sel value={cl.budget||""} onChange={v=>upd({budget:v})} options={BUDGETS} placeholder="예산 선택" req/></div>
+        <div><FL c="희망 일정" mt={0} req/><Sel value={cl.timeline||""} onChange={v=>upd({timeline:v})} options={TIMELINES} placeholder="일정 선택" req/></div>
       </div>
     </Panel>
 
@@ -721,12 +721,12 @@ export default function App(){
       {active.step===0&&<>
         <InfoBanner phase="Discovery" step="STEP 1" color={C.blue} bg={C.blueBg}>AI 자동 조사 + 직접 입력 → 맞춤형 인터뷰 질문지 자동 생성</InfoBanner>
         <Panel title="고객 기본 정보" icon="🏪">
-          <FL c="상호명 / 고객명" mt={0}/><Inp value={active.name} onChange={v=>upd({name:v})} placeholder="예: 종로 스윗베이커리"/>
+          <FL c="상호명 / 고객명" mt={0} req/><Inp value={active.name} onChange={v=>upd({name:v})} placeholder="예: 종로 스윗베이커리" req/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div><FL c="업종"/><Sel value={active.industry} onChange={v=>upd({industry:v,hypothesis:[]})} options={INDUSTRIES}/></div>
-            <div><FL c="규모"/><Sel value={active.size} onChange={v=>upd({size:v})} options={SIZES}/></div>
-            <div><FL c="지역"/><Inp value={active.region} onChange={v=>upd({region:v})} placeholder="예: 서울 마포구"/></div>
-            <div><FL c="AI 친숙도"/><Sel value={active.aiLevel} onChange={v=>upd({aiLevel:v})} options={AI_LEVELS}/></div>
+            <div><FL c="업종" req/><Sel value={active.industry} onChange={v=>upd({industry:v,hypothesis:[]})} options={INDUSTRIES} req/></div>
+            <div><FL c="규모" opt/><Sel value={active.size} onChange={v=>upd({size:v})} options={SIZES}/></div>
+            <div><FL c="지역" opt/><Inp value={active.region} onChange={v=>upd({region:v})} placeholder="예: 서울 마포구"/></div>
+            <div><FL c="AI 친숙도" opt/><Sel value={active.aiLevel} onChange={v=>upd({aiLevel:v})} options={AI_LEVELS}/></div>
           </div>
         </Panel>
         <ResearchPanel cl={active} upd={upd}/>
@@ -833,9 +833,9 @@ export default function App(){
         <Panel title="Pain Point 편집" icon="📋">
           {(active.painPoints||[]).map((pp,i)=><div key={i} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"12px",marginBottom:10,position:"relative"}}>
             <div style={{position:"absolute",top:8,right:10,fontSize:11,background:C.blueBg,color:C.blue,padding:"2px 8px",borderRadius:10}}>#{i+1}</div>
-            <FL c="제목" mt={0}/><Inp value={pp.title} onChange={v=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,title:v}:p)})} placeholder="예: 재고 수기 관리"/>
-            <FL c="유형"/><div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>{PAIN_TYPES.map(t=><Tag key={t} label={t} selected={pp.type===t} onClick={()=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,type:t}:p)})}/>)}</div>
-            <FL c="현재 영향"/><Inp value={pp.impact} onChange={v=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,impact:v}:p)})} placeholder="예: 하루 1시간 낭비"/>
+            <FL c="제목" mt={0} req/><Inp value={pp.title} onChange={v=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,title:v}:p)})} placeholder="예: 재고 수기 관리" req/>
+            <FL c="유형" opt/><div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>{PAIN_TYPES.map(t=><Tag key={t} label={t} selected={pp.type===t} onClick={()=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,type:t}:p)})}/>)}</div>
+            <FL c="현재 영향" opt/><Inp value={pp.impact} onChange={v=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,impact:v}:p)})} placeholder="예: 하루 1시간 낭비"/>
           </div>)}
           <Btn onClick={()=>upd({painPoints:[...(active.painPoints||[]),{title:"",type:"",impact:"",solution:""}]})}>+ 추가</Btn>
         </Panel>
@@ -871,8 +871,8 @@ export default function App(){
           {validPPs.length?validPPs.map((pt,i)=><div key={i} style={{padding:"8px 10px",borderRadius:8,border:"0.5px solid var(--color-border-tertiary)",marginBottom:6,background:"var(--color-background-primary)"}}><div style={{fontSize:13,fontWeight:500}}>#{i+1} {pt.title} <Chip label={pt.type} color={C.teal} bg={C.tealBg}/></div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>영향: {pt.impact}</div></div>):<div style={{fontSize:13,color:"var(--color-text-secondary)"}}>Pain Point 없음 — Discovery 재확인 필요</div>}
         </Panel>
         <Panel title="2차 미팅 재확인" icon="🔎">
-          <FL c="추가 파악 내용" mt={0}/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
-          <FL c="예산·의사결정 메모"/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
+          <FL c="추가 파악 내용" mt={0} opt/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
+          <FL c="예산·의사결정 메모" opt/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
           <Btn v="teal" onClick={()=>runAI("dg_rc","Discovery 결과 Diagnosis 재검토. 추가 확인 포인트 200자 이내.",`고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
           <AIBox loading={aiGet("dg_rc").loading} result={aiGet("dg_rc").result} error={aiGet("dg_rc").error} color={C.teal}/>
         </Panel>
