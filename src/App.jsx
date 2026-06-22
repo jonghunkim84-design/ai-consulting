@@ -908,43 +908,45 @@ export default function App(){
                 const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
                 const r=await claude(
                   `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 작성하세요.
+
+⚠️ 분량 규칙 (반드시 준수):
+- 각 항목은 불릿 포인트 3~5줄 이내로 간결하게 작성
+- 전체 분량이 A4 2페이지를 넘지 않도록 작성
+- 불필요한 수식어·반복 설명 금지
+
 반드시 아래 6개 항목을 모두 포함하세요:
 
 [1. 제안 솔루션 (TO-BE)]
-• 시스템 개요 및 아키텍처
-• 주요 기능 설명 (3~5개)
-• 기술 스택
-• 차별화 포인트
+• 시스템 개요 (1줄)
+• 주요 기능 3가지 이내
+• 사용 기술/도구
 
 [2. 구축 범위]
-• 포함 범위 (In-Scope)
-• 제외 범위 (Out-of-Scope)
-• 인터페이스/연동 대상
+• 포함 범위 (In-Scope) 핵심만
+• 제외 범위 (Out-of-Scope) 핵심만
 
 [3. 추진 일정 (WBS)]
-• 단계별 일정 (착수→분석→설계→개발→테스트→오픈)
-• 마일스톤
+• 단계별 일정 요약 (착수~오픈)
+• 주요 마일스톤 2~3개
 
 [4. 추진 조직 및 역할]
-• 제안사 투입 인력 및 역할
-• 고객사 협조 사항
+• 제안사 역할 요약
+• 고객사 협조 사항 요약
 
 [5. 사업비 (견적)]
-• 항목별 비용 내역
-• 유지보수 비용
-• 지급 조건
+• 주요 비용 항목 및 금액
+• 유지보수 조건
 
 [6. 기대 효과]
-• 정량적 효과 (비용 절감, 처리 시간 단축 등)
-• 정성적 효과 (업무 편의성, 데이터 가시성 등)
-• ROI`,
+• 정량적 효과 (수치 포함)
+• ROI 요약`,
                   `고객: ${active.name||"미입력"} / 업종: ${active.industry||"미입력"} / 규모: ${active.size||"미입력"}
 AI친숙도: ${active.aiLevel||"미입력"}
 핵심 Pain Point: ${validPPs.map((p,i)=>`#${i+1} ${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
 제안 솔루션: ${solDesc}
 사용 도구/기술: ${tools}
 예산 범위: ${active.budget||"미정"} / 구축 기간: ${active.timeline||"미정"}`,
-                  4000
+                  2000
                 );
                 upd({proposalDraft:r});
                 aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
@@ -968,9 +970,9 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
                       const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
                       try{
-                        const r=await claude("IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.",
+                        const r=await claude("IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. 각 항목 3~5줄 이내, 전체 A4 2페이지 이내로 간결하게 작성. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.",
                           `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
-                          4000
+                          2000
                         );
                         upd({proposalDraft:r});
                         aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
@@ -1126,14 +1128,19 @@ AI친숙도: ${active.aiLevel||"미입력"}
                   }[k])).filter(Boolean);
                   try{
                     const r=await claude(
-                      `당신은 IT 컨설턴트입니다. 기존 제안서 초안에 실현 가능성 평가의 권고 사항을 반영해서 제안서를 개선하세요.
+                      `당신은 IT 컨설턴트입니다. 기존 제안서 초안에 권고 사항을 반영해서 제안서를 개선하세요.
+
+⚠️ 분량 규칙 (반드시 준수):
+- 각 항목은 불릿 포인트 3~5줄 이내로 간결하게 작성
+- 전체 분량이 A4 2페이지를 넘지 않도록 작성
+
 반드시 아래 6개 항목을 모두 포함하세요:
-[1. 제안 솔루션 (TO-BE)] 시스템 개요, 주요 기능, 기술 스택, 차별화 포인트
-[2. 구축 범위] In-Scope, Out-of-Scope, 연동 대상
-[3. 추진 일정 (WBS)] 단계별 일정, 마일스톤
-[4. 추진 조직 및 역할] 투입 인력, 고객사 협조 사항
-[5. 사업비 (견적)] 항목별 비용, 유지보수, 지급 조건
-[6. 기대 효과] 정량적 효과, 정성적 효과, ROI`,
+[1. 제안 솔루션 (TO-BE)] 시스템 개요(1줄), 주요 기능 3가지 이내, 사용 기술
+[2. 구축 범위] In-Scope 핵심만, Out-of-Scope 핵심만
+[3. 추진 일정 (WBS)] 단계별 일정 요약, 마일스톤 2~3개
+[4. 추진 조직 및 역할] 역할 요약, 고객사 협조 사항 요약
+[5. 사업비 (견적)] 주요 비용 항목, 유지보수 조건
+[6. 기대 효과] 정량적 효과(수치 포함), ROI 요약`,
                       `고객:${active.name} 업종:${active.industry} 규모:${active.size}
 PP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
 솔루션:${solDesc} 도구:${tools}
@@ -1149,7 +1156,7 @@ ${active.selectedRecommendations||"없음"}
 ${selectedOpts.join("\n")||"없음"}
 
 위 권고 사항과 반영 항목을 적극적으로 제안서에 녹여서 개선해주세요.`,
-                      4000
+                      2000
                     );
                     upd({proposalDraft:r});
                     aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
