@@ -546,9 +546,9 @@ export default function App(){
 
   // ── Supabase 연동 ──
   useEffect(()=>{
-    supabase.from('consulting_clients')
-      .select('id, data, updated_at')
-      .order('updated_at',{ascending:false})
+    supabase.from('clients')
+      .select('id, data')
+      .order('created_at',{ascending:false})
       .then(({data,error})=>{
         if(!error&&data) setClients(data.map(row=>({...row.data,id:row.id})));
         setDbLoading(false);
@@ -556,13 +556,25 @@ export default function App(){
   },[]);
 
   const saveClient = (client) => {
-    supabase.from('consulting_clients')
-      .upsert({id:client.id,data:client})
+    const row={
+      id:client.id,
+      name:client.name||'',
+      industry:client.industry||'',
+      size:client.size||'',
+      region:client.region||'',
+      ai_level:client.aiLevel||'',
+      status:client.status||'discovery',
+      phase:client.phase||0,
+      step:client.step||0,
+      phases_done:client.phasesDone||[false,false,false],
+      data:client,
+    };
+    supabase.from('clients').upsert(row,{onConflict:'id'})
       .then(({error})=>{if(error)console.error('저장 실패:',error);});
   };
 
   const deleteClient = async (id) => {
-    const {error}=await supabase.from('consulting_clients').delete().eq('id',id);
+    const {error}=await supabase.from('clients').delete().eq('id',id);
     if(error)console.error('삭제 실패:',error);
   };
 
@@ -585,7 +597,8 @@ export default function App(){
 
   const addClient = async () => {
     const c=initClient();
-    await supabase.from('consulting_clients').insert({id:c.id,data:c});
+    const row={id:c.id,name:c.name||'',industry:c.industry||'',size:c.size||'',region:c.region||'',ai_level:c.aiLevel||'',status:c.status||'discovery',phase:c.phase||0,step:c.step||0,phases_done:c.phasesDone||[false,false,false],data:c};
+    await supabase.from('clients').insert(row);
     setClients(cs=>[...cs,c]);
     setActiveId(c.id);
     setView("client");
