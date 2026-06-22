@@ -520,7 +520,7 @@ const initClient=()=>({
   budget:"",timeline:"",
   solutions:[{title:"",type:"",desc:"",why:"",tool:"",effort:"",cost:""}],
   selectedSol:null,selectedSols:[],mergedSolution:null,
-  feasCheck:{},riskNote:"",proposalText:"",propCheck:{},
+  feasCheck:{},riskNote:"",selectedRecommendations:"",recOptions:{},proposalDraft:"",proposalText:"",propCheck:{},
   presentCheck:{},objection:"",contractNote:"",
   testNotes:"",manualText:"",buildCheck:{},handoverCheck:{},caseStudy:"",
   buildTool:"",buildEffort:"",buildCost:"",
@@ -894,9 +894,113 @@ const row = {
 
       {/* DG2 솔루션 설계 */}
       {active.step===1&&<>
-        <InfoBanner phase="Diagnosis" step="STEP 2" color={C.teal} bg={C.tealBg}>AI 솔루션 3안 자동 생성 — 여러 개 선택 후 통합 합성 가능</InfoBanner>
+        <InfoBanner phase="Diagnosis" step="STEP 2" color={C.teal} bg={C.tealBg}>
+          솔루션 선택 → 제안서 초안 자동 생성 → STEP 3 실현 가능성 평가 순서로 진행하세요.
+        </InfoBanner>
         <SolutionPanel cl={active} upd={upd} aiGet={aiGet} runAI={runAI}/>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn><Btn v="teal" onClick={()=>next(2)} disabled={!(active.selectedSols||[]).length}>솔루션 확정 →</Btn></div>
+
+        {/* 제안서 초안 자동 생성 — STEP 3 실현 가능성 평가 전에 필요 */}
+        {(active.selectedSols||[]).length>0&&<>
+          <Panel title="제안서 초안 자동 생성" icon="📋" bl={C.teal}>
+            <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:12,lineHeight:1.6}}>
+              선택된 솔루션을 바탕으로 제안서 초안을 생성합니다.<br/>
+              이 내용을 바탕으로 STEP 3에서 실현 가능성을 평가할 수 있습니다.
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+              {[["고객",active.name],["솔루션",chosenSol?.title||"미선택"],["예산",active.budget||"미입력"],["일정",active.timeline||"미입력"]].map(([l,v])=>(
+                <div key={l} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"8px 12px"}}>
+                  <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:2}}>{l}</div>
+                  <div style={{fontSize:13,fontWeight:500}}>{v||"미입력"}</div>
+                </div>
+              ))}
+            </div>
+            <Btn v="teal" onClick={async()=>{
+              aiSet("dg_proposal_draft",{loading:true,result:null,error:false});
+              try{
+                const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
+                const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
+                const r=await claude(
+                  `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 작성하세요.
+반드시 아래 6개 항목을 모두 포함하세요:
+
+[1. 제안 솔루션 (TO-BE)]
+• 시스템 개요 및 아키텍처
+• 주요 기능 설명 (3~5개)
+• 기술 스택
+• 차별화 포인트
+
+[2. 구축 범위]
+• 포함 범위 (In-Scope)
+• 제외 범위 (Out-of-Scope)
+• 인터페이스/연동 대상
+
+[3. 추진 일정 (WBS)]
+• 단계별 일정 (착수→분석→설계→개발→테스트→오픈)
+• 마일스톤
+
+[4. 추진 조직 및 역할]
+• 제안사 투입 인력 및 역할
+• 고객사 협조 사항
+
+[5. 사업비 (견적)]
+• 항목별 비용 내역
+• 유지보수 비용
+• 지급 조건
+
+[6. 기대 효과]
+• 정량적 효과 (비용 절감, 처리 시간 단축 등)
+• 정성적 효과 (업무 편의성, 데이터 가시성 등)
+• ROI`,
+                  `고객: ${active.name||"미입력"} / 업종: ${active.industry||"미입력"} / 규모: ${active.size||"미입력"}
+AI친숙도: ${active.aiLevel||"미입력"}
+핵심 Pain Point: ${validPPs.map((p,i)=>`#${i+1} ${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
+제안 솔루션: ${solDesc}
+사용 도구/기술: ${tools}
+예산 범위: ${active.budget||"미정"} / 구축 기간: ${active.timeline||"미정"}`,
+                  2000
+                );
+                upd({proposalDraft:r});
+                aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
+              }catch(e){
+                aiSet("dg_proposal_draft",{loading:false,result:null,error:true});
+              }
+            }} disabled={aiGet("dg_proposal_draft").loading||!chosenSol?.title}>
+              {aiGet("dg_proposal_draft").loading?"⟳ 제안서 초안 생성 중...":"✨ 제안서 초안 자동 생성 (6개 항목)"}
+            </Btn>
+            {aiGet("dg_proposal_draft").error&&<AIBox loading={false} result={null} error={true} color={C.teal}/>}
+            {(active.proposalDraft||aiGet("dg_proposal_draft").loading)&&!aiGet("dg_proposal_draft").error&&(
+              aiGet("dg_proposal_draft").loading
+                ?<div style={{display:"flex",alignItems:"center",gap:8,padding:14,color:"var(--color-text-secondary)",fontSize:13,marginTop:10,background:"var(--color-background-secondary)",borderRadius:8}}>⟳ 6개 항목 제안서를 작성하고 있습니다...</div>
+                :<>
+                  <div style={{fontSize:12,color:C.teal,fontWeight:500,marginTop:10,marginBottom:6}}>✦ 제안서 초안 완성 — 내용을 확인하고 STEP 3으로 진행하세요</div>
+                  <TA value={active.proposalDraft||""} onChange={v=>upd({proposalDraft:v})} rows={20}/>
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <Btn onClick={()=>{navigator.clipboard.writeText(active.proposalDraft||"");}}> 📋 복사</Btn>
+                    <Btn v="ghost" onClick={async()=>{
+                      aiSet("dg_proposal_draft",{loading:true,result:null,error:false});
+                      const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
+                      const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
+                      try{
+                        const r=await claude("IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.",
+                          `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
+                          2000
+                        );
+                        upd({proposalDraft:r});
+                        aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
+                      }catch{aiSet("dg_proposal_draft",{loading:false,result:null,error:true});}
+                    }} disabled={aiGet("dg_proposal_draft").loading}>🔄 재생성</Btn>
+                  </div>
+                </>
+            )}
+          </Panel>
+        </>}
+
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
+          <Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn>
+          <Btn v="teal" onClick={()=>next(2)} disabled={!(active.selectedSols||[]).length||!active.proposalDraft}>
+            {!(active.selectedSols||[]).length?"솔루션을 선택하세요":!active.proposalDraft?"제안서 초안을 먼저 생성하세요":"제안서 초안 완료 → 실현 가능성 평가 →"}
+          </Btn>
+        </div>
       </>}
 
       {/* DG3 실현 가능성 */}
@@ -908,8 +1012,30 @@ const row = {
           :selSols.length>0?selSols:[chosenSol].filter(Boolean);
         return <>
           <InfoBanner phase="Diagnosis" step="STEP 3" color={C.teal} bg={C.tealBg}>
-            선택된 {evalTargets.length}개 솔루션의 실현 가능성을 각각 평가합니다.
+            STEP 2에서 생성된 제안서 초안을 바탕으로 실현 가능성을 평가합니다.
           </InfoBanner>
+
+          {/* 제안서 초안 요약 참조 */}
+          {active.proposalDraft&&(
+            <Panel title="STEP 2 제안서 초안 요약" icon="📋" accent={C.tealBg}>
+              <div style={{fontSize:12,color:C.teal,marginBottom:8,fontWeight:500}}>
+                아래 제안서 내용을 참고해서 실현 가능성을 평가하세요.
+              </div>
+              <div style={{background:"var(--color-background-primary)",borderRadius:8,padding:"12px 14px",fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap",maxHeight:200,overflowY:"auto",color:"var(--color-text-secondary)"}}>
+                {active.proposalDraft}
+              </div>
+            </Panel>
+          )}
+          {!active.proposalDraft&&(
+            <div style={{padding:"12px 14px",background:C.warnBg,borderRadius:8,fontSize:13,color:C.warn,marginBottom:"1rem",display:"flex",alignItems:"center",gap:8}}>
+              <span>⚠</span>
+              <div>
+                <div style={{fontWeight:500,marginBottom:2}}>제안서 초안이 없습니다</div>
+                <div style={{fontSize:12}}>STEP 2로 돌아가서 제안서 초안을 먼저 생성해 주세요.</div>
+              </div>
+              <Btn sm v="teal" onClick={()=>upd({step:1})} style={{marginLeft:"auto"}}>← STEP 2로</Btn>
+            </div>
+          )}
 
           {/* 선택 솔루션 전체 표시 */}
           <Panel title="평가 대상 솔루션" icon="🎯" accent={C.tealBg}>
@@ -953,8 +1079,8 @@ const row = {
                 ))}
               </div>
               <Btn v="teal" sm onClick={()=>runAI(aiKey,
-                "소상공인 AI 솔루션 실현 가능성 평가. 아래 4가지를 간결하게:\n✅ 강점(1~2줄)\n⚠️ 리스크(1~2줄)\n💡 성공 조건(1줄)\n📌 권고(1줄)",
-                `솔루션:${sol.title}(${sol.type||""}) 도구:${sol.tool||""}\n기간:${sol.effort||""} 비용:${sol.cost||""}\n고객:${active.name} AI친숙도:${active.aiLevel}\n예산:${active.budget} 리스크메모:${active.riskNote||"없음"}`
+                "소상공인 AI 솔루션 실현 가능성 평가. 제안서 초안을 참고해서 아래 4가지를 간결하게:\n✅ 강점(1~2줄)\n⚠️ 리스크(1~2줄)\n💡 성공 조건(1줄)\n📌 권고(1줄)",
+                `솔루션:${sol.title}(${sol.type||""}) 도구:${sol.tool||""}\n기간:${sol.effort||""} 비용:${sol.cost||""}\n고객:${active.name} AI친숙도:${active.aiLevel}\n예산:${active.budget} 리스크메모:${active.riskNote||"없음"}\n\n[제안서 초안 참조]\n${(active.proposalDraft||"없음").substring(0,800)}`
               )} disabled={aiGet(aiKey).loading}>
                 {aiGet(aiKey).loading?"⟳ 평가 중...":"🤖 AI 실현 가능성 평가"}
               </Btn>
@@ -966,25 +1092,150 @@ const row = {
           <Panel title="공통 리스크 메모" icon="⚠️">
             <TA value={active.riskNote} onChange={v=>upd({riskNote:v})} placeholder="전체 솔루션에 공통으로 적용되는 리스크나 제약 조건..." rows={3}/>
           </Panel>
+
+          {/* 권고 사항 선택 → 제안서 반영 */}
+          <Panel title="권고 사항 선택 → 제안서 반영" icon="✅" bl={C.teal}>
+            <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:12,lineHeight:1.6}}>
+              위 AI 평가에서 나온 권고 사항을 직접 입력하거나 선택해서 제안서 초안에 반영할 수 있습니다.
+            </div>
+            <FL c="반영할 권고 사항 (AI 평가 결과에서 복사해서 입력)" mt={0}/>
+            <TA
+              value={active.selectedRecommendations||""}
+              onChange={v=>upd({selectedRecommendations:v})}
+              placeholder={`예:\n• 초기 2주는 재고 수기 병행 운영 권장\n• 카카오 알림톡 사전 채널 개설 필요\n• 포스 API 연동 가능 여부 사전 확인 필요`}
+              rows={5}
+            />
+            <FL c="제안서에 반영할 항목 선택"/>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}>
+              {[
+                ["rec_risk","⚠️ 리스크 완화 방안을 구축 범위에 추가"],
+                ["rec_schedule","📅 권고 일정 조정 사항을 WBS에 반영"],
+                ["rec_cost","💰 추가 비용 항목을 사업비에 반영"],
+                ["rec_role","👤 고객사 협조 사항을 추진 조직에 추가"],
+                ["rec_effect","📊 성공 조건을 기대 효과 ROI에 반영"],
+              ].map(([key,label])=>(
+                <label key={key} onClick={()=>updN("recOptions",{[key]:!active.recOptions?.[key]})}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:8,
+                    border:`0.5px solid ${active.recOptions?.[key]?"var(--color-border-success)":"var(--color-border-tertiary)"}`,
+                    background:active.recOptions?.[key]?"var(--color-background-success)":"var(--color-background-primary)",
+                    cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!active.recOptions?.[key]} onChange={()=>{}} onClick={e=>e.stopPropagation()} style={{accentColor:C.teal}}/>
+                  <span style={{fontSize:13,textDecoration:active.recOptions?.[key]?"line-through":"none",opacity:active.recOptions?.[key]?0.6:1}}>{label}</span>
+                </label>
+              ))}
+            </div>
+            {(active.selectedRecommendations||Object.values(active.recOptions||{}).some(Boolean))&&(
+              <div style={{marginTop:14}}>
+                <Btn v="teal" onClick={async()=>{
+                  aiSet("dg_proposal_revised",{loading:true,result:null,error:false});
+                  const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
+                  const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
+                  const selectedOpts=Object.entries(active.recOptions||{}).filter(([,v])=>v).map(([k])=>({
+                    rec_risk:"리스크 완화 방안 → 구축 범위 반영",
+                    rec_schedule:"일정 조정 → WBS 반영",
+                    rec_cost:"추가 비용 항목 → 사업비 반영",
+                    rec_role:"고객사 협조 사항 → 추진 조직 반영",
+                    rec_effect:"성공 조건 → 기대 효과 ROI 반영",
+                  }[k])).filter(Boolean);
+                  try{
+                    const r=await claude(
+                      `당신은 IT 컨설턴트입니다. 기존 제안서 초안에 실현 가능성 평가의 권고 사항을 반영해서 제안서를 개선하세요.
+반드시 아래 6개 항목을 모두 포함하세요:
+[1. 제안 솔루션 (TO-BE)] 시스템 개요, 주요 기능, 기술 스택, 차별화 포인트
+[2. 구축 범위] In-Scope, Out-of-Scope, 연동 대상
+[3. 추진 일정 (WBS)] 단계별 일정, 마일스톤
+[4. 추진 조직 및 역할] 투입 인력, 고객사 협조 사항
+[5. 사업비 (견적)] 항목별 비용, 유지보수, 지급 조건
+[6. 기대 효과] 정량적 효과, 정성적 효과, ROI`,
+                      `고객:${active.name} 업종:${active.industry} 규모:${active.size}
+PP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
+솔루션:${solDesc} 도구:${tools}
+예산:${active.budget} 일정:${active.timeline}
+
+[기존 제안서 초안]
+${(active.proposalDraft||"없음").substring(0,600)}
+
+[반영할 권고 사항]
+${active.selectedRecommendations||"없음"}
+
+[반영 항목]
+${selectedOpts.join("\n")||"없음"}
+
+위 권고 사항과 반영 항목을 적극적으로 제안서에 녹여서 개선해주세요.`,
+                      2000
+                    );
+                    upd({proposalDraft:r});
+                    aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
+                  }catch{
+                    aiSet("dg_proposal_revised",{loading:false,result:null,error:true});
+                  }
+                }} disabled={aiGet("dg_proposal_revised").loading}>
+                  {aiGet("dg_proposal_revised").loading?"⟳ 권고 사항 반영해서 재생성 중...":"🔄 선택한 권고 사항 반영 → 제안서 재생성"}
+                </Btn>
+                {aiGet("dg_proposal_revised").loading&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,padding:12,color:"var(--color-text-secondary)",fontSize:13,marginTop:10,background:"var(--color-background-secondary)",borderRadius:8}}>
+                    ⟳ 권고 사항을 반영해서 제안서를 개선하고 있습니다...
+                  </div>
+                )}
+                {aiGet("dg_proposal_revised").result==="완료"&&!aiGet("dg_proposal_revised").loading&&(
+                  <div style={{fontSize:12,color:C.success,fontWeight:500,marginTop:8}}>
+                    ✓ 제안서가 업데이트되었습니다. STEP 4에서 최종 확인하세요.
+                  </div>
+                )}
+                {aiGet("dg_proposal_revised").error&&<AIBox loading={false} result={null} error={true} color={C.teal}/>}
+              </div>
+            )}
+          </Panel>
+
           <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
             <Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn>
-            <Btn v="teal" onClick={()=>next(3)}>평가 완료 → 제안서 작성 →</Btn>
+            <Btn v="teal" onClick={()=>next(3)}>평가 완료 → 제안서 최종 확인 →</Btn>
           </div>
         </>;
       })()}
 
-      {/* DG4 제안서 */}
+      {/* DG4 제안서 최종 확인 & 전달 */}
       {active.step===3&&<>
-        <InfoBanner phase="Diagnosis" step="STEP 4" color={C.teal} bg={C.tealBg}>AI가 제안서 초안을 자동 생성합니다.</InfoBanner>
-        <Panel title="AI 제안서 생성" icon="📝">
-          <Btn v="teal" onClick={async()=>{aiSet("dg_pr",{loading:true,result:null,error:false});try{const r=await claude("소상공인 AI 솔루션 제안서.\n[제안서]\n━━━━━━━\n[고객사] [제안솔루션] [핵심문제] [솔루션개요] [기대효과 수치포함] [도구] [개발일정 주차별] [비용견적] [고객역할] [다음단계]\n━━━━━━━",`고객:${active.name} 업종:${active.industry}\nPP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(",")}\n솔루션:${chosenSol?.title} 도구:${chosenSol?.tool}\n예산:${active.budget} 일정:${active.timeline}`);upd({proposalText:r});aiSet("dg_pr",{loading:false,result:"완료",error:false});}catch{aiSet("dg_pr",{loading:false,result:null,error:true});}}} disabled={aiGet("dg_pr").loading||!chosenSol?.title}>{aiGet("dg_pr").loading?"⟳ 작성 중...":"✨ AI 제안서 초안 생성"}</Btn>
-          <AIBox loading={false} result={null} error={aiGet("dg_pr").error} color={C.teal}/>
+        <InfoBanner phase="Diagnosis" step="STEP 4" color={C.teal} bg={C.tealBg}>
+          STEP 2~3을 거쳐 완성된 제안서를 최종 확인하고 고객에게 전달하세요.
+        </InfoBanner>
+        <Panel title="최종 제안서 확인 & 편집" icon="📝">
+          {active.proposalDraft
+            ?<>
+              <div style={{fontSize:12,color:C.teal,marginBottom:8}}>
+                {aiGet("dg_proposal_revised").result==="완료"
+                  ?"✦ 권고 사항이 반영된 개선 버전입니다."
+                  :"✦ STEP 2에서 생성된 제안서 초안입니다."}
+              </div>
+              <TA value={active.proposalDraft} onChange={v=>upd({proposalDraft:v})} rows={20}/>
+              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                <Btn onClick={()=>copyT(active.proposalDraft,"proposal_final")}>{copied==="proposal_final"?"✓ 복사됨":"📋 전체 복사"}</Btn>
+                <Btn v="ghost" onClick={()=>upd({step:1})}>← STEP 2에서 재생성</Btn>
+                <Btn v="ghost" onClick={()=>upd({step:2})}>← STEP 3에서 권고 반영</Btn>
+              </div>
+            </>
+            :<div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>
+              <div style={{fontSize:24,marginBottom:8}}>📋</div>
+              <div style={{marginBottom:12}}>제안서 초안이 없습니다.</div>
+              <Btn v="teal" onClick={()=>upd({step:1})}>← STEP 2로 돌아가기</Btn>
+            </div>
+          }
         </Panel>
-        {active.proposalText&&<Panel title="제안서 편집" icon="✏️">
-          <TA value={active.proposalText} onChange={v=>upd({proposalText:v})} rows={14}/>
-          <Btn onClick={()=>copyT(active.proposalText,"pr")} style={{marginTop:8}}>{copied==="pr"?"✓ 복사됨":"📋 복사"}</Btn>
-        </Panel>}
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:2})}>← 이전</Btn><Btn v="teal" onClick={()=>next(4)}>완료 →</Btn></div>
+        <Panel title="제안서 완료 체크리스트" icon="✅">
+          {[
+            ["제안 솔루션(TO-BE) 내용 확인","시스템 개요, 기능, 기술스택 포함 여부"],
+            ["구축 범위 In/Out-Scope 명확히 기재","고객이 기대하는 것과 차이 없는지"],
+            ["추진 일정(WBS) 현실적인지 검토","고객 일정과 맞는지"],
+            ["사업비 항목별 내역 정확한지 확인","유지보수 비용 포함 여부"],
+            ["기대 효과 수치 근거 있는지 확인","ROI 계산 포함 여부"],
+          ].map(([t,s],i)=>(
+            <ChkItem key={i} label={t} sub={s} checked={!!active.propCheck?.[i]} onChange={()=>updN("propCheck",{[i]:!active.propCheck?.[i]})}/>
+          ))}
+        </Panel>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
+          <Btn v="ghost" onClick={()=>upd({step:2})}>← 이전</Btn>
+          <Btn v="teal" onClick={()=>next(4)}>제안서 완료 → 발표 & 컨펌 →</Btn>
+        </div>
       </>}
 
       {/* DG5 발표 & 컨펌 */}
