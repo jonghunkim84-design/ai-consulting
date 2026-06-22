@@ -215,15 +215,75 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
 }
 
 // ── 신규 기능 3: Agile PM (스프린트 보드 + 간트 + 번다운 + 리소스) ──
-const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3});
+const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3,dependencies:[],startDate:null,dueDate:null,manualDates:false});
 const newSprint=(n)=>({id:Date.now()+Math.random(),num:n,name:`Sprint ${n}`,goal:"",start:"",end:"",tasks:[]});
 
 function PMResources({pm,updPM}){
+  const [popup,setPopup]=useState(null);
   const res=pm.resources||[];
   const allTasks=pm.sprints.flatMap(s=>s.tasks||[]);
   const updRes=(id,patch)=>updPM({resources:res.map(r=>r.id===id?{...r,...patch}:r)});
   const byName={};allTasks.forEach(t=>{if(!byName[t.assignee])byName[t.assignee]=[];byName[t.assignee].push(t);});
-  return <div>
+
+  // ── 날짜별 히트맵 ──
+  const tasksWithDates=allTasks.filter(t=>t.startDate&&t.dueDate);
+  const namedRes=res.filter(r=>r.name);
+  const heatmapVisible=tasksWithDates.length>0&&namedRes.length>0;
+  const heatmapDates=[];
+  if(heatmapVisible){
+    const dts=tasksWithDates.flatMap(t=>[new Date(t.startDate),new Date(t.dueDate)]);
+    const hStart=new Date(Math.min(...dts)); const hEnd=new Date(Math.max(...dts));
+    const d=new Date(hStart);
+    while(d<=hEnd&&heatmapDates.length<28){heatmapDates.push(new Date(d));d.setDate(d.getDate()+1);}
+  }
+  const todayHeat=new Date();todayHeat.setHours(0,0,0,0);
+  const getHeatColor=(day,name)=>{
+    const wd=day.getDay();if(wd===0||wd===6)return"#E0E0E0";
+    const ts=allTasks.filter(t=>t.assignee===name&&t.startDate&&t.dueDate&&new Date(t.startDate)<=day&&new Date(t.dueDate)>=day);
+    if(!ts.length)return"#D1E7DD";
+    if(ts.some(t=>t.status!=="완료"&&new Date(t.dueDate)<todayHeat))return C.danger;
+    const pts=ts.reduce((a,t)=>a+(t.pts||0),0);
+    return pts>=3?"#F97316":pts>=1?"#EAB308":"#D1E7DD";
+  };
+
+  return <div style={{position:"relative"}}>
+    {popup&&<>
+      <div style={{position:"fixed",inset:0,zIndex:99}} onClick={()=>setPopup(null)}/>
+      <div style={{position:"fixed",top:popup.y,left:popup.x,background:"var(--color-background-primary)",border:"1px solid var(--color-border-secondary)",borderRadius:8,padding:"10px 14px",zIndex:100,boxShadow:"0 4px 12px rgba(0,0,0,0.12)",maxWidth:260,fontSize:12}}>
+        <div style={{fontWeight:500,marginBottom:6}}>{popup.date} · {popup.name}</div>
+        {popup.tasks.length===0
+          ?<div style={{color:"var(--color-text-secondary)"}}>태스크 없음</div>
+          :popup.tasks.map(t=><div key={t.id} style={{marginBottom:3,display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:10,padding:"1px 5px",borderRadius:4,background:STATUS_COLOR[t.status]?.bg,color:STATUS_COLOR[t.status]?.c}}>{t.status}</span>{t.title||"(없음)"} ({t.pts}pt)</div>)}
+        <button onClick={()=>setPopup(null)} style={{marginTop:6,fontSize:11,color:C.blue,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>닫기</button>
+      </div>
+    </>}
+
+    {heatmapVisible&&<Panel title="날짜별 부하 히트맵" icon="🗓️" style={{marginBottom:8}}>
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",fontSize:11,minWidth:400}}>
+          <thead><tr>
+            <th style={{textAlign:"left",padding:"2px 8px 4px 0",fontWeight:500,color:"var(--color-text-secondary)",minWidth:80}}>담당자</th>
+            {heatmapDates.map((d,i)=><th key={i} style={{padding:"1px 1px 4px",fontWeight:400,color:d.getDay()===0||d.getDay()===6?"#AAA":"var(--color-text-secondary)",minWidth:22,textAlign:"center"}}>
+              <div>{d.getDate()}</div>
+              {(i===0||d.getDate()===1)&&<div style={{fontSize:9}}>{d.toLocaleDateString('ko-KR',{month:'short'})}</div>}
+            </th>)}
+          </tr></thead>
+          <tbody>{namedRes.map(r=><tr key={r.id}>
+            <td style={{padding:"2px 8px 2px 0",fontWeight:500,whiteSpace:"nowrap"}}>{r.name}</td>
+            {heatmapDates.map((d,i)=>{
+              const color=getHeatColor(d,r.name);
+              const dayStr=d.toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+              const dayTs=allTasks.filter(t=>t.assignee===r.name&&t.startDate&&t.dueDate&&new Date(t.startDate)<=d&&new Date(t.dueDate)>=d);
+              return <td key={i} style={{padding:1}}><div onClick={e=>{e.stopPropagation();setPopup({x:e.clientX+8,y:e.clientY+8,name:r.name,date:dayStr,tasks:dayTs});}} style={{width:20,height:16,background:color,borderRadius:2,cursor:"pointer"}} title={`${r.name} ${dayStr}: ${dayTs.length}개`}/></td>;
+            })}
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:8,fontSize:11,flexWrap:"wrap"}}>
+        {[["#D1E7DD","비어있음/낮음"],["#EAB308","보통(1~2pt)"],["#F97316","높음(3pt+)"],[C.danger,"기한초과"],["#E0E0E0","주말"]].map(([c,l])=><div key={l} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:12,height:10,background:c,borderRadius:2}}/>{l}</div>)}
+      </div>
+    </Panel>}
+
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:500}}>리소스 ({res.length}명)</div>
       <Btn sm v="ghost" onClick={()=>updPM({resources:[...res,{id:Date.now(),name:"",role:"컨설턴트(본인)",avail:100}]})}>+ 추가</Btn>
@@ -266,52 +326,205 @@ function PMResources({pm,updPM}){
 function PMBoard({pm,updSprints,updPM}){
   const resNames=(pm.resources||[]).filter(r=>r.name).map(r=>r.name);
   const assigneeOpts=resNames.length?resNames:ROLES;
-  return <div>{pm.sprints.map((sp,si)=><div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-      <span style={{fontSize:14,fontWeight:500,color:C.purple}}>{sp.name}</span>
-      <Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
-      <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
-      <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
-      <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
-      {SPRINT_STATUS.map((st,stIdx)=>{
-        const tasks=(sp.tasks||[]).filter(t=>t.status===st);
-        const sc=STATUS_COLOR[st]||{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"};
-        return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100,position:"relative"}}>
-          {stIdx>0&&<div style={{position:"absolute",left:-5,top:8,bottom:8,width:0,borderLeft:"1px dashed #DEDEDE"}}/>}
-          <div style={{fontSize:11,fontWeight:500,color:sc.c,background:sc.bg,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:8}}>{st}({tasks.length})</div>
-          {tasks.map(task=><div key={task.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:6,padding:"7px",marginBottom:5}}>
-            <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{task.title||"(제목없음)"}</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontSize:10,background:PRI_C[task.priority]?.bg,color:PRI_C[task.priority]?.c,padding:"1px 5px",borderRadius:6}}>{task.priority}</span>
-              <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{task.pts}pt</span>
+  const allTasksFlat=pm.sprints.flatMap(s=>(s.tasks||[]).map(t=>({...t,sprintName:s.name})));
+  const today=new Date();today.setHours(0,0,0,0);
+  const overdueTasks=allTasksFlat.filter(t=>t.dueDate&&t.status!=="완료"&&new Date(t.dueDate)<today);
+
+  const getTransitiveDependents=(taskId,tasks)=>{
+    const deps=new Set();let changed=true;
+    while(changed){changed=false;for(const t of tasks){if(!deps.has(String(t.id))&&(t.dependencies??[]).some(d=>String(d)===String(taskId)||deps.has(String(d)))){deps.add(String(t.id));changed=true;}}}
+    return deps;
+  };
+
+  const getDepsText=(task)=>{
+    const ids=task.dependencies??[];if(!ids.length)return null;
+    const dts=ids.map(id=>allTasksFlat.find(t=>String(t.id)===String(id))).filter(Boolean);
+    if(!dts.length)return null;
+    const shown=dts.slice(0,2).map(t=>t.title||"(없음)");const extra=dts.length-2;
+    return"선행: "+shown.join(", ")+(extra>0?` 외 ${extra}개`:"");
+  };
+
+  const getDueDisplay=(task)=>{
+    if(!task.dueDate)return null;
+    const due=new Date(task.dueDate);const diff=Math.round((due-today)/86400000);
+    const label=`${due.getMonth()+1}/${due.getDate()}`;
+    if(task.status==="완료")return{text:`📅 ${label}`,style:{fontSize:10,color:"var(--color-text-secondary)",textDecoration:"line-through",marginBottom:3}};
+    if(diff<0)return{text:`🔴 ${label} 초과`,style:{fontSize:10,background:C.dangerBg,color:C.danger,borderRadius:4,padding:"1px 5px",display:"inline-block",marginBottom:3,fontWeight:600}};
+    if(diff<=2)return{text:`⚠️ ${label}`,style:{fontSize:10,color:C.warn,fontWeight:500,marginBottom:3}};
+    return{text:`📅 ${label}`,style:{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}};
+  };
+
+  const updTask=(si,taskId,patch)=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===taskId?{...t,...patch}:t)}:sp2));
+
+  return <div>
+    {overdueTasks.length>0&&<div style={{background:C.dangerBg,border:`1px solid ${C.danger}`,borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:12,color:C.danger,cursor:"pointer"}} onClick={()=>document.getElementById("overdue-anchor")?.scrollIntoView({behavior:"smooth"})}>
+      <strong>🔴 기한 초과 태스크 {overdueTasks.length}건</strong> — {overdueTasks.slice(0,3).map(t=>`${t.title||"(없음)"} (${t.assignee}, ${t.dueDate?.slice(5).replace("-","/")})`).join(", ")}{overdueTasks.length>3?` 외 ${overdueTasks.length-3}건`:""}
+    </div>}
+
+    {pm.sprints.map((sp,si)=><div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:14,fontWeight:500,color:C.purple}}>{sp.name}</span>
+        <Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
+        <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+        <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
+        <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+        {SPRINT_STATUS.map((st,stIdx)=>{
+          const tasks=(sp.tasks||[]).filter(t=>t.status===st);
+          const sc=STATUS_COLOR[st]||{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"};
+          return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100,position:"relative"}}>
+            {stIdx>0&&<div style={{position:"absolute",left:-5,top:8,bottom:8,width:0,borderLeft:"1px dashed #DEDEDE"}}/>}
+            <div style={{fontSize:11,fontWeight:500,color:sc.c,background:sc.bg,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:8}}>{st}({tasks.length})</div>
+            {tasks.map(task=>{
+              const isOD=task.dueDate&&task.status!=="완료"&&new Date(task.dueDate)<today;
+              const dueDisp=getDueDisplay(task);const depsText=getDepsText(task);
+              return <div id={isOD?"overdue-anchor":undefined} key={task.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderLeft:isOD?`3px solid ${C.danger}`:"0.5px solid var(--color-border-tertiary)",borderRadius:6,padding:"7px",marginBottom:5}}>
+                <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{task.title||"(제목없음)"}</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{fontSize:10,background:PRI_C[task.priority]?.bg,color:PRI_C[task.priority]?.c,padding:"1px 5px",borderRadius:6}}>{task.priority}</span>
+                  <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{task.pts}pt</span>
+                </div>
+                <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:3}}>{task.assignee}</div>
+                {depsText&&<div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}}>{depsText}</div>}
+                {dueDisp&&<div style={dueDisp.style}>{dueDisp.text}</div>}
+                <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:4}}>
+                  {SPRINT_STATUS.filter(s=>s!==st).map(s=><button key={s} onClick={()=>updTask(si,task.id,{status:s})} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontFamily:"inherit"}}>→{s}</button>)}
+                  <button onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).filter(t=>t.id!==task.id)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:`0.5px solid ${C.danger}`,background:"transparent",cursor:"pointer",color:C.danger,fontFamily:"inherit"}}>✕</button>
+                </div>
+              </div>;
+            })}
+            <button onClick={()=>{const t=prompt("태스크 제목:");if(!t)return;updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),{...newTask(sp.id),title:t,status:st}]}:sp2));}} style={{width:"100%",padding:"4px",border:"0.5px dashed var(--color-border-secondary)",borderRadius:6,background:"transparent",cursor:"pointer",fontSize:11,color:"var(--color-text-secondary)",fontFamily:"inherit",marginTop:4}}>+ 추가</button>
+          </div>;
+        })}
+      </div>
+
+      {(sp.tasks||[]).length>0&&<details style={{marginTop:8}}><summary style={{fontSize:12,color:C.purple,cursor:"pointer"}}>태스크 상세 편집 ({sp.tasks.length}개)</summary>
+        <div style={{marginTop:8}}>{(sp.tasks||[]).map(task=>{
+          const otherTasks=allTasksFlat.filter(t=>String(t.id)!==String(task.id));
+          const blocked=getTransitiveDependents(task.id,allTasksFlat);
+          const curDeps=(task.dependencies??[]).map(String);
+          return <div key={task.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 60px",gap:5,marginBottom:5,alignItems:"center"}}>
+              <Inp value={task.title} onChange={v=>updTask(si,task.id,{title:v})} placeholder="태스크 제목" style={{fontSize:12}}/>
+              <Sel value={task.assignee} onChange={v=>updTask(si,task.id,{assignee:v})} options={assigneeOpts}/>
+              <Sel value={task.priority} onChange={v=>updTask(si,task.id,{priority:v})} options={PRIORITY}/>
+              <Sel value={task.status} onChange={v=>updTask(si,task.id,{status:v})} options={SPRINT_STATUS}/>
+              <input type="number" value={task.pts} min={1} max={13} onChange={e=>updTask(si,task.id,{pts:Number(e.target.value)})} style={{width:"100%",padding:"6px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:12,fontFamily:"inherit"}}/>
             </div>
-            <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:5}}>{task.assignee}</div>
-            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-              {SPRINT_STATUS.filter(s=>s!==st).map(s=><button key={s} onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:s}:t)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontFamily:"inherit"}}>→{s}</button>)}
-              <button onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).filter(t=>t.id!==task.id)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:`0.5px solid ${C.danger}`,background:"transparent",cursor:"pointer",color:C.danger,fontFamily:"inherit"}}>✕</button>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:8,alignItems:"start"}}>
+              <div>
+                <FL c="선행 태스크" mt={0}/>
+                <div style={{maxHeight:90,overflowY:"auto",border:"1.5px solid #C5C5C5",borderRadius:8,padding:"4px 6px",background:"var(--color-background-primary)"}}>
+                  {otherTasks.length===0&&<div style={{fontSize:11,color:"var(--color-text-secondary)",padding:"3px 0"}}>다른 태스크 없음</div>}
+                  {otherTasks.map(ot=>{
+                    const sid=String(ot.id);const isBlocked=blocked.has(sid);const isChecked=curDeps.includes(sid);
+                    return <label key={sid} style={{display:"flex",alignItems:"center",gap:5,padding:"2px 0",cursor:isBlocked?"not-allowed":"pointer",opacity:isBlocked?0.4:1}}>
+                      <input type="checkbox" checked={isChecked} disabled={isBlocked} onChange={e=>{const next=e.target.checked?[...curDeps,sid]:curDeps.filter(d=>d!==sid);updTask(si,task.id,{dependencies:next});}} style={{accentColor:C.purple}}/>
+                      <span style={{fontSize:11}}>{ot.sprintName} › {ot.title||"(없음)"}</span>
+                    </label>;
+                  })}
+                </div>
+              </div>
+              <div>
+                <FL c={<span>시작일{task.manualDates&&<span style={{marginLeft:3,fontSize:10}}>✏️</span>}</span>} mt={0}/>
+                <input type="date" value={task.startDate||""} onChange={e=>updTask(si,task.id,{startDate:e.target.value||null,manualDates:true})} style={{width:"100%",fontSize:12,padding:"7px 8px",borderRadius:8,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <FL c={<span>마감일{task.manualDates&&<span style={{marginLeft:3,fontSize:10}}>✏️</span>}</span>} mt={0}/>
+                <input type="date" value={task.dueDate||""} onChange={e=>updTask(si,task.id,{dueDate:e.target.value||null,manualDates:true})} style={{width:"100%",fontSize:12,padding:"7px 8px",borderRadius:8,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",boxSizing:"border-box"}}/>
+              </div>
             </div>
-          </div>)}
-          <button onClick={()=>{const t=prompt("태스크 제목:");if(!t)return;updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),{...newTask(sp.id),title:t,status:st}]}:sp2));}} style={{width:"100%",padding:"4px",border:"0.5px dashed var(--color-border-secondary)",borderRadius:6,background:"transparent",cursor:"pointer",fontSize:11,color:"var(--color-text-secondary)",fontFamily:"inherit",marginTop:4}}>+ 추가</button>
-        </div>;
-      })}
+          </div>;
+        })}</div>
+      </details>}
+
+      <div style={{display:"flex",gap:8,marginTop:8}}>
+        <Btn sm v="ghost" onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),newTask(sp.id)]}:sp2))}>+ 태스크</Btn>
+        {si===pm.sprints.length-1&&<Btn sm v="ghost" onClick={()=>updPM({sprints:[...pm.sprints,newSprint(pm.sprints.length+1)]})}>+ 스프린트</Btn>}
+        {pm.sprints.length>1&&si===pm.sprints.length-1&&<Btn sm v="ghost" style={{color:C.danger,borderColor:C.danger}} onClick={()=>updPM({sprints:pm.sprints.slice(0,-1)})}>삭제</Btn>}
+      </div>
+    </div>)}
+  </div>;
+}
+
+function PMGantt({pm}){
+  const [expanded,setExpanded]=useState({});
+  const swd=pm.sprints.filter(s=>s.start&&s.end);
+  if(!swd.length) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>스프린트에 시작일/종료일을 입력하면 간트차트가 표시됩니다.</div>;
+  const allD=swd.flatMap(s=>[new Date(s.start),new Date(s.end)]);
+  swd.forEach(s=>(s.tasks||[]).forEach(t=>{if(t.startDate)allD.push(new Date(t.startDate));if(t.dueDate)allD.push(new Date(t.dueDate));}));
+  const mn=new Date(Math.min(...allD)),mx=new Date(Math.max(...allD));
+  const tot=Math.max(1,(mx-mn)/86400000+1);
+  const today=new Date();today.setHours(0,0,0,0);
+  const todayL=Math.min(100,Math.max(0,(today-mn)/86400000/tot*100));
+  const allAssignees=[...new Set(swd.flatMap(s=>(s.tasks||[]).map(t=>t.assignee).filter(Boolean)))];
+  const TASK_COLS=["#185FA5","#0F6E56","#534AB7","#854F0B","#A32D2D","#5F5E5A"];
+  const aColor={};allAssignees.forEach((a,i)=>{aColor[a]=TASK_COLS[i%TASK_COLS.length];});
+  const SPRINT_COLS=[C.blue,C.teal,C.purple,C.warn];
+  const xLabels=[];
+  {const d=new Date(mn);while(d<=mx){xLabels.push({date:new Date(d),pct:(d-mn)/86400000/tot*100});d.setDate(d.getDate()+7);}
+   xLabels.push({date:new Date(mx),pct:100});}
+  const filteredLabels=xLabels.filter((l,i)=>i===0||l.pct-xLabels[i-1].pct>8);
+  const toggle=(id)=>setExpanded(e=>({...e,[id]:!e[id]}));
+  return <div style={{overflowX:"auto"}}><div style={{minWidth:480}}>
+    <div style={{display:"flex",marginBottom:8}}>
+      <div style={{width:170,flexShrink:0,fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>스프린트 / 태스크</div>
+      <div style={{flex:1,position:"relative",height:16}}><div style={{position:"absolute",left:`${todayL}%`,top:-2,fontSize:10,color:C.danger,fontWeight:500,transform:"translateX(-50%)"}}>오늘</div></div>
     </div>
-    {(sp.tasks||[]).length>0&&<details style={{marginTop:8}}><summary style={{fontSize:12,color:C.purple,cursor:"pointer"}}>태스크 상세 편집 ({sp.tasks.length}개)</summary>
-      <div style={{marginTop:8}}>{(sp.tasks||[]).map(task=><div key={task.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 60px",gap:5,marginBottom:5,alignItems:"center"}}>
-        <Inp value={task.title} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,title:v}:t)}:sp2))} placeholder="태스크 제목" style={{fontSize:12}}/>
-        <Sel value={task.assignee} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,assignee:v}:t)}:sp2))} options={assigneeOpts}/>
-        <Sel value={task.priority} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,priority:v}:t)}:sp2))} options={PRIORITY}/>
-        <Sel value={task.status} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:v}:t)}:sp2))} options={SPRINT_STATUS}/>
-        <input type="number" value={task.pts} min={1} max={13} onChange={e=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,pts:Number(e.target.value)}:t)}:sp2))} style={{width:"100%",padding:"6px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:12,fontFamily:"inherit"}}/>
-      </div>)}</div>
-    </details>}
-    <div style={{display:"flex",gap:8,marginTop:8}}>
-      <Btn sm v="ghost" onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),newTask(sp.id)]}:sp2))}>+ 태스크</Btn>
-      {si===pm.sprints.length-1&&<Btn sm v="ghost" onClick={()=>updPM({sprints:[...pm.sprints,newSprint(pm.sprints.length+1)]})}>+ 스프린트</Btn>}
-      {pm.sprints.length>1&&si===pm.sprints.length-1&&<Btn sm v="ghost" style={{color:C.danger,borderColor:C.danger}} onClick={()=>updPM({sprints:pm.sprints.slice(0,-1)})}>삭제</Btn>}
+    {swd.map((s,i)=>{
+      const l=Math.max(0,(new Date(s.start)-mn)/86400000/tot*100);
+      const w=Math.max(1,(new Date(s.end)-new Date(s.start))/86400000/tot*100);
+      const done=(s.tasks||[]).filter(t=>t.status==="완료").length;
+      const col=SPRINT_COLS[i%SPRINT_COLS.length];
+      const isOpen=expanded[s.id];
+      const taskBars=(s.tasks||[]).filter(t=>t.startDate&&t.dueDate);
+      return <div key={s.id}>
+        <div style={{display:"flex",alignItems:"center",marginBottom:4}}>
+          <div style={{width:170,flexShrink:0,fontSize:12,fontWeight:500,paddingRight:8,display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>toggle(s.id)} style={{fontSize:10,background:"none",border:"none",cursor:"pointer",padding:"0 3px",color:"var(--color-text-secondary)",fontFamily:"inherit",flexShrink:0}}>{isOpen?"▼":"▶"}</button>
+            <div style={{overflow:"hidden"}}>{s.name}<div style={{fontSize:11,color:"var(--color-text-secondary)",fontWeight:400}}>{done}/{(s.tasks||[]).length} 완료</div></div>
+          </div>
+          <div style={{flex:1,position:"relative",height:28,background:"var(--color-background-secondary)",borderRadius:4}}>
+            <div style={{position:"absolute",left:`${todayL}%`,top:0,bottom:0,borderLeft:`1.5px dashed ${C.danger}`,zIndex:2}}/>
+            <div style={{position:"absolute",left:`${l}%`,width:`${w}%`,top:4,height:20,background:col,borderRadius:4,display:"flex",alignItems:"center",paddingLeft:6,minWidth:4}}>
+              {w>12&&<span style={{fontSize:11,color:"#fff",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden"}}>{s.goal||s.name}</span>}
+            </div>
+          </div>
+        </div>
+        {isOpen&&taskBars.map(task=>{
+          const tl=Math.max(0,(new Date(task.startDate)-mn)/86400000/tot*100);
+          const tw=Math.max(0.5,(new Date(task.dueDate)-new Date(task.startDate))/86400000/tot*100+1/tot*100);
+          const isOD=new Date(task.dueDate)<today&&task.status!=="완료";
+          const tCol=isOD?C.danger:(aColor[task.assignee]||C.gray);
+          const depTitles=(task.dependencies??[]).map(id=>(s.tasks||[]).find(t=>String(t.id)===String(id))?.title).filter(Boolean);
+          return <div key={task.id} style={{display:"flex",alignItems:"center",marginBottom:3}}>
+            <div style={{width:170,flexShrink:0,paddingRight:8,paddingLeft:20}}>
+              <div style={{fontSize:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.title||"(없음)"}</div>
+              {depTitles.length>0&&<div style={{fontSize:9,color:"var(--color-text-secondary)"}}>선행: {depTitles.join(", ")}</div>}
+            </div>
+            <div style={{flex:1,position:"relative",height:18,background:"var(--color-background-secondary)",borderRadius:3}}>
+              <div style={{position:"absolute",left:`${todayL}%`,top:0,bottom:0,borderLeft:`1px dashed ${C.danger}`,opacity:0.5,zIndex:2}}/>
+              <div title={`${task.title} · ${task.assignee} · ${task.startDate}~${task.dueDate}${depTitles.length?` · 선행: ${depTitles.join(", ")}`:""}`} style={{position:"absolute",left:`${tl}%`,width:`${tw}%`,top:2,height:14,background:tCol,borderRadius:3,opacity:0.85,minWidth:3}}/>
+            </div>
+          </div>;
+        })}
+        {isOpen&&taskBars.length===0&&<div style={{paddingLeft:20,fontSize:11,color:"var(--color-text-secondary)",marginBottom:4}}>시작일/마감일이 설정된 태스크 없음</div>}
+      </div>;
+    })}
+    <div style={{display:"flex",marginTop:6}}>
+      <div style={{width:170,flexShrink:0}}/>
+      <div style={{flex:1,position:"relative",height:16}}>
+        {filteredLabels.map((l,i)=><span key={i} style={{position:"absolute",left:`${Math.min(l.pct,98)}%`,transform:i===filteredLabels.length-1?"translateX(-100%)":i>0?"translateX(-50%)":"none",fontSize:10,color:"var(--color-text-secondary)",whiteSpace:"nowrap"}}>{l.date.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>)}
+      </div>
     </div>
-  </div>)}</div>;
+    <div style={{display:"flex",gap:12,marginTop:6,flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.danger}}><div style={{width:14,borderTop:`2px dashed ${C.danger}`}}/>오늘</div>
+      {SPRINT_COLS.slice(0,swd.length).map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:14,height:8,background:c,borderRadius:2}}/>{swd[i]?.name}</div>)}
+      {allAssignees.length>0&&<>{allAssignees.map(a=><div key={a} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:10,height:10,background:aColor[a],borderRadius:2,opacity:0.85}}/>{a}</div>)}<div style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:10,height:10,background:C.danger,borderRadius:2}}/>기한초과</div></>}
+    </div>
+  </div></div>;
 }
 
 function PMPanel({cl,upd}){
@@ -330,16 +543,19 @@ function PMPanel({cl,upd}){
     const tools=(cl.buildTool)||(chosenSols.map(s=>s.tool).filter(Boolean).join(", "))||"미정";
     const effort=(cl.buildEffort)||(chosenSols[0]?.effort)||cl.timeline||"2~4주";
     try{
+      const todayStr=new Date().toISOString().split("T")[0];
       const r=await claude(
         `당신은 Agile PM 전문가입니다. 소상공인 AI 솔루션 개발 프로젝트 플랜을 생성하세요.
 반드시 순수 JSON만 출력 (마크다운 백틱 없이, 설명 없이, JSON만):
-{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","daysFromStart":0,"durationDays":14,"tasks":[{"title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
-규칙: 스프린트 2~3개, 태스크 스프린트당 4~6개, pts 1~5`,
+{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","daysFromStart":0,"durationDays":14,"tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
+규칙: 스프린트 2~3개, 태스크 스프린트당 4~6개, pts 1~5
+의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
+날짜 계산(프로젝트 시작일=${todayStr}): 1)선행없는 태스크=오늘부터 2)선행있는 태스크=선행 dueDate+1영업일 3)dueDate=startDate+(pts-1)영업일(주말제외) 4)같은 담당자 병렬 태스크는 겹치지 않게 조정`,
         `고객:${cl.name||"고객"} 업종:${cl.industry||"미정"} AI친숙도:${cl.aiLevel||"초급"}
 Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
 솔루션:${solDesc||"AI 솔루션"} 도구:${tools} 예상기간:${effort}
 예산:${cl.budget||"미정"}`,
-        2000
+        3000
       );
       let parsed=null;
       // 1차: 전체 텍스트 파싱
@@ -360,9 +576,11 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
             name:sp.name||`Sprint ${i+1}`, goal:sp.goal||"",
             start:fmt(start), end:fmt(end),
             tasks:(sp.tasks||[]).map(t=>({
-              id:Date.now()+Math.random(), sid:0,
+              id:t.id||(Date.now()+Math.random()), sid:0,
               title:t.title||"", assignee:t.assignee||"컨설턴트(본인)",
-              priority:t.priority||"보통", status:t.status||"백로그", pts:t.pts||3
+              priority:t.priority||"보통", status:t.status||"백로그", pts:t.pts||3,
+              dependencies:(t.dependencies||[]).map(String),
+              startDate:t.startDate||null, dueDate:t.dueDate||null, manualDates:false
             }))
           };
         });
@@ -387,54 +605,6 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
   const donePts=doneTasks.reduce((a,t)=>a+(t.pts||0),0);
   const prog=totalPts>0?Math.round(donePts/totalPts*100):0;
 
-  // 간트차트
-  const Gantt=()=>{
-    const swd=pm.sprints.filter(s=>s.start&&s.end);
-    if(!swd.length) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>스프린트에 시작일/종료일을 입력하면 간트차트가 표시됩니다.</div>;
-    const allD=swd.flatMap(s=>[new Date(s.start),new Date(s.end)]);
-    const mn=new Date(Math.min(...allD)),mx=new Date(Math.max(...allD));
-    const tot=Math.max(1,(mx-mn)/86400000+1);
-    const today=new Date();
-    const todayL=Math.min(100,Math.max(0,(today-mn)/86400000/tot*100));
-    const COLS=[C.blue,C.teal,C.purple,C.warn];
-    return <div style={{overflowX:"auto"}}><div style={{minWidth:480}}>
-      <div style={{display:"flex",marginBottom:8}}>
-        <div style={{width:130,flexShrink:0,fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>스프린트</div>
-        <div style={{flex:1,position:"relative",height:16}}>
-          <div style={{position:"absolute",left:`${todayL}%`,top:-2,fontSize:10,color:C.danger,fontWeight:500,transform:"translateX(-50%)"}}>오늘</div>
-        </div>
-      </div>
-      {swd.map((s,i)=>{
-        const l=Math.max(0,(new Date(s.start)-mn)/86400000/tot*100);
-        const w=Math.max(1,(new Date(s.end)-new Date(s.start))/86400000/tot*100);
-        const done=(s.tasks||[]).filter(t=>t.status==="완료").length;
-        const col=COLS[i%COLS.length];
-        return <div key={s.id} style={{display:"flex",alignItems:"center",marginBottom:10}}>
-          <div style={{width:130,flexShrink:0,fontSize:12,fontWeight:500,paddingRight:8}}>
-            {s.name}<div style={{fontSize:11,color:"var(--color-text-secondary)",fontWeight:400}}>{done}/{(s.tasks||[]).length} 완료</div>
-          </div>
-          <div style={{flex:1,position:"relative",height:28,background:"var(--color-background-secondary)",borderRadius:4}}>
-            <div style={{position:"absolute",left:`${todayL}%`,top:0,bottom:0,borderLeft:`1.5px dashed ${C.danger}`,zIndex:2}}/>
-            <div style={{position:"absolute",left:`${l}%`,width:`${w}%`,top:4,height:20,background:col,borderRadius:4,display:"flex",alignItems:"center",paddingLeft:6,minWidth:4}}>
-              {w>12&&<span style={{fontSize:11,color:"#fff",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden"}}>{s.goal||s.name}</span>}
-            </div>
-          </div>
-        </div>;
-      })}
-      <div style={{display:"flex",marginTop:4}}>
-        <div style={{width:130,flexShrink:0}}/>
-        <div style={{flex:1,position:"relative",height:16}}>
-          <span style={{position:"absolute",left:0,fontSize:10,color:"var(--color-text-secondary)"}}>{mn.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
-          <span style={{position:"absolute",left:"50%",transform:"translateX(-50%)",fontSize:10,color:"var(--color-text-secondary)"}}>{new Date((mn.getTime()+mx.getTime())/2).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
-          <span style={{position:"absolute",right:0,fontSize:10,color:"var(--color-text-secondary)"}}>{mx.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</span>
-        </div>
-      </div>
-      <div style={{display:"flex",gap:12,marginTop:6,flexWrap:"wrap"}}>
-        <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.danger}}><div style={{width:14,borderTop:`2px dashed ${C.danger}`}}/>오늘</div>
-        {COLS.slice(0,swd.length).map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:14,height:8,background:c,borderRadius:2}}/>{swd[i]?.name}</div>)}
-      </div>
-    </div></div>;
-  };
 
   // 번다운 차트 (전체 스프린트 기간)
   const Burndown=()=>{
@@ -516,7 +686,7 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
       {[["board","📋 스프린트 보드"],["gantt","📅 간트차트"],["burndown","📉 번다운"],["resources","👥 리소스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400}}>{l}</button>)}
     </div>
     {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
-    {view==="gantt"&&<Gantt/>}
+    {view==="gantt"&&<PMGantt pm={pm}/>}
     {view==="burndown"&&<Burndown/>}
     {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
   </div>;
