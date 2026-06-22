@@ -15,7 +15,7 @@ const PRIORITY=["긴급","높음","보통","낮음"];
 const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"},"진행중":{bg:"#E6F1FB",c:"#185FA5"},"완료":{bg:"#EAF3DE",c:"#3B6D11"},"보류":{bg:"#FAEEDA",c:"#854F0B)"}};
 const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F0B"},"보통":{bg:"#E6F1FB",c:"#185FA5"},"낮음":{bg:"#F1EFE8",c:"#5F5E5A"}};
 
-async function claude(sys,usr,maxTok=1200){
+async function claude(sys,usr,maxTok=1500){
   const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,user:usr,max_tokens:maxTok})});
   const d=await r.json();if(!r.ok)throw new Error(d.error||"API error");return d.text||"";
 }
@@ -957,7 +957,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
 제안 솔루션: ${solDesc}
 사용 도구/기술: ${tools}
 예산 범위: ${active.budget||"미정"} / 구축 기간: ${active.timeline||"미정"}`,
-                  2000
+                  4000
                 );
                 upd({proposalDraft:r});
                 aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
@@ -983,7 +983,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       try{
                         const r=await claude("IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.",
                           `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
-                          2000
+                          4000
                         );
                         upd({proposalDraft:r});
                         aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
@@ -1162,7 +1162,7 @@ ${active.selectedRecommendations||"없음"}
 ${selectedOpts.join("\n")||"없음"}
 
 위 권고 사항과 반영 항목을 적극적으로 제안서에 녹여서 개선해주세요.`,
-                      2000
+                      4000
                     );
                     upd({proposalDraft:r});
                     aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
