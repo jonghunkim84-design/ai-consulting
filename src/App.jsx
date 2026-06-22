@@ -229,7 +229,7 @@ function PMResources({pm,updPM}){
       <Btn sm v="ghost" onClick={()=>updPM({resources:[...res,{id:Date.now(),name:"",role:"컨설턴트(본인)",avail:100}]})}>+ 추가</Btn>
     </div>
     {res.map(r=>{
-      const tasks=byName[r.name]||byName[r.role]||[];
+      const tasks=byName[r.name]||[];
       const aPts=tasks.reduce((a,t)=>a+(t.pts||0),0);
       const dPts2=tasks.filter(t=>t.status==="완료").reduce((a,t)=>a+(t.pts||0),0);
       const load=pm.velocity>0?Math.round(aPts/pm.velocity*100):0;
@@ -261,6 +261,57 @@ function PMResources({pm,updPM}){
       </div>
     </Panel>
   </div>;
+}
+
+function PMBoard({pm,updSprints,updPM}){
+  const resNames=(pm.resources||[]).filter(r=>r.name).map(r=>r.name);
+  const assigneeOpts=resNames.length?resNames:ROLES;
+  return <div>{pm.sprints.map((sp,si)=><div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+      <span style={{fontSize:14,fontWeight:500,color:C.purple}}>{sp.name}</span>
+      <Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
+      <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+      <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
+      <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+      {SPRINT_STATUS.map((st,stIdx)=>{
+        const tasks=(sp.tasks||[]).filter(t=>t.status===st);
+        const sc=STATUS_COLOR[st]||{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"};
+        return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100,position:"relative"}}>
+          {stIdx>0&&<div style={{position:"absolute",left:-5,top:8,bottom:8,width:0,borderLeft:"1px dashed #DEDEDE"}}/>}
+          <div style={{fontSize:11,fontWeight:500,color:sc.c,background:sc.bg,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:8}}>{st}({tasks.length})</div>
+          {tasks.map(task=><div key={task.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:6,padding:"7px",marginBottom:5}}>
+            <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{task.title||"(제목없음)"}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontSize:10,background:PRI_C[task.priority]?.bg,color:PRI_C[task.priority]?.c,padding:"1px 5px",borderRadius:6}}>{task.priority}</span>
+              <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{task.pts}pt</span>
+            </div>
+            <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:5}}>{task.assignee}</div>
+            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+              {SPRINT_STATUS.filter(s=>s!==st).map(s=><button key={s} onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:s}:t)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontFamily:"inherit"}}>→{s}</button>)}
+              <button onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).filter(t=>t.id!==task.id)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:`0.5px solid ${C.danger}`,background:"transparent",cursor:"pointer",color:C.danger,fontFamily:"inherit"}}>✕</button>
+            </div>
+          </div>)}
+          <button onClick={()=>{const t=prompt("태스크 제목:");if(!t)return;updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),{...newTask(sp.id),title:t,status:st}]}:sp2));}} style={{width:"100%",padding:"4px",border:"0.5px dashed var(--color-border-secondary)",borderRadius:6,background:"transparent",cursor:"pointer",fontSize:11,color:"var(--color-text-secondary)",fontFamily:"inherit",marginTop:4}}>+ 추가</button>
+        </div>;
+      })}
+    </div>
+    {(sp.tasks||[]).length>0&&<details style={{marginTop:8}}><summary style={{fontSize:12,color:C.purple,cursor:"pointer"}}>태스크 상세 편집 ({sp.tasks.length}개)</summary>
+      <div style={{marginTop:8}}>{(sp.tasks||[]).map(task=><div key={task.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 60px",gap:5,marginBottom:5,alignItems:"center"}}>
+        <Inp value={task.title} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,title:v}:t)}:sp2))} placeholder="태스크 제목" style={{fontSize:12}}/>
+        <Sel value={task.assignee} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,assignee:v}:t)}:sp2))} options={assigneeOpts}/>
+        <Sel value={task.priority} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,priority:v}:t)}:sp2))} options={PRIORITY}/>
+        <Sel value={task.status} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:v}:t)}:sp2))} options={SPRINT_STATUS}/>
+        <input type="number" value={task.pts} min={1} max={13} onChange={e=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,pts:Number(e.target.value)}:t)}:sp2))} style={{width:"100%",padding:"6px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:12,fontFamily:"inherit"}}/>
+      </div>)}</div>
+    </details>}
+    <div style={{display:"flex",gap:8,marginTop:8}}>
+      <Btn sm v="ghost" onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),newTask(sp.id)]}:sp2))}>+ 태스크</Btn>
+      {si===pm.sprints.length-1&&<Btn sm v="ghost" onClick={()=>updPM({sprints:[...pm.sprints,newSprint(pm.sprints.length+1)]})}>+ 스프린트</Btn>}
+      {pm.sprints.length>1&&si===pm.sprints.length-1&&<Btn sm v="ghost" style={{color:C.danger,borderColor:C.danger}} onClick={()=>updPM({sprints:pm.sprints.slice(0,-1)})}>삭제</Btn>}
+    </div>
+  </div>)}</div>;
 }
 
 function PMPanel({cl,upd}){
@@ -336,55 +387,6 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
   const donePts=doneTasks.reduce((a,t)=>a+(t.pts||0),0);
   const prog=totalPts>0?Math.round(donePts/totalPts*100):0;
 
-  // 스프린트 보드
-  const Board=()=><div>{pm.sprints.map((sp,si)=><div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-      <span style={{fontSize:14,fontWeight:500,color:C.purple}}>{sp.name}</span>
-      <Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
-      <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
-      <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
-      <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
-      {SPRINT_STATUS.map((st,stIdx)=>{
-        const tasks=(sp.tasks||[]).filter(t=>t.status===st);
-        const sc=STATUS_COLOR[st]||{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"};
-        return <div key={st} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:8,minHeight:100,position:"relative"}}>
-          {stIdx>0&&<div style={{position:"absolute",left:-5,top:8,bottom:8,width:0,borderLeft:"1px dashed #DEDEDE"}}/>}
-          <div style={{fontSize:11,fontWeight:500,color:sc.c,background:sc.bg,padding:"2px 8px",borderRadius:10,display:"inline-block",marginBottom:8}}>{st}({tasks.length})</div>
-          {tasks.map(task=><div key={task.id} style={{background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:6,padding:"7px",marginBottom:5}}>
-            <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{task.title||"(제목없음)"}</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-              <span style={{fontSize:10,background:PRI_C[task.priority]?.bg,color:PRI_C[task.priority]?.c,padding:"1px 5px",borderRadius:6}}>{task.priority}</span>
-              <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{task.pts}pt</span>
-            </div>
-            <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:5}}>{task.assignee}</div>
-            <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-              {SPRINT_STATUS.filter(s=>s!==st).map(s=><button key={s} onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:s}:t)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontFamily:"inherit"}}>→{s}</button>)}
-              <button onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).filter(t=>t.id!==task.id)}:sp2))} style={{fontSize:9,padding:"1px 4px",borderRadius:4,border:`0.5px solid ${C.danger}`,background:"transparent",cursor:"pointer",color:C.danger,fontFamily:"inherit"}}>✕</button>
-            </div>
-          </div>)}
-          <button onClick={()=>{const t=prompt("태스크 제목:");if(!t)return;updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),{...newTask(sp.id),title:t,status:st}]}:sp2));}} style={{width:"100%",padding:"4px",border:"0.5px dashed var(--color-border-secondary)",borderRadius:6,background:"transparent",cursor:"pointer",fontSize:11,color:"var(--color-text-secondary)",fontFamily:"inherit",marginTop:4}}>+ 추가</button>
-        </div>;
-      })}
-    </div>
-    {/* 태스크 편집 */}
-    {(sp.tasks||[]).length>0&&<details style={{marginTop:8}}><summary style={{fontSize:12,color:C.purple,cursor:"pointer"}}>태스크 상세 편집 ({sp.tasks.length}개)</summary>
-      <div style={{marginTop:8}}>{(sp.tasks||[]).map(task=><div key={task.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 60px",gap:5,marginBottom:5,alignItems:"center"}}>
-        <Inp value={task.title} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,title:v}:t)}:sp2))} placeholder="태스크 제목" style={{fontSize:12}}/>
-        <Sel value={task.assignee} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,assignee:v}:t)}:sp2))} options={ROLES}/>
-        <Sel value={task.priority} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,priority:v}:t)}:sp2))} options={PRIORITY}/>
-        <Sel value={task.status} onChange={v=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,status:v}:t)}:sp2))} options={SPRINT_STATUS}/>
-        <input type="number" value={task.pts} min={1} max={13} onChange={e=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:(sp2.tasks||[]).map(t=>t.id===task.id?{...t,pts:Number(e.target.value)}:t)}:sp2))} style={{width:"100%",padding:"6px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)",fontSize:12,fontFamily:"inherit"}}/>
-      </div>)}</div>
-    </details>}
-    <div style={{display:"flex",gap:8,marginTop:8}}>
-      <Btn sm v="ghost" onClick={()=>updSprints(ss=>ss.map((sp2,i)=>i===si?{...sp2,tasks:[...(sp2.tasks||[]),newTask(sp.id)]}:sp2))}>+ 태스크</Btn>
-      {si===pm.sprints.length-1&&<Btn sm v="ghost" onClick={()=>updPM({sprints:[...pm.sprints,newSprint(pm.sprints.length+1)]})}>+ 스프린트</Btn>}
-      {pm.sprints.length>1&&si===pm.sprints.length-1&&<Btn sm v="ghost" style={{color:C.danger,borderColor:C.danger}} onClick={()=>updPM({sprints:pm.sprints.slice(0,-1)})}>삭제</Btn>}
-    </div>
-  </div>)}</div>;
-
   // 간트차트
   const Gantt=()=>{
     const swd=pm.sprints.filter(s=>s.start&&s.end);
@@ -434,15 +436,16 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     </div></div>;
   };
 
-  // 번다운 차트
+  // 번다운 차트 (전체 스프린트 기간)
   const Burndown=()=>{
-    const sp=pm.sprints[0];
-    if(!sp||!sp.start||!sp.end) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>Sprint 1에 시작일/종료일을 입력하면 번다운 차트가 표시됩니다.</div>;
-    const start=new Date(sp.start),end=new Date(sp.end),today=new Date();
+    const spWithDates=pm.sprints.filter(s=>s.start&&s.end);
+    if(!spWithDates.length) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>스프린트에 시작일/종료일을 입력하면 번다운 차트가 표시됩니다.</div>;
+    const allD=spWithDates.flatMap(s=>[new Date(s.start),new Date(s.end)]);
+    const start=new Date(Math.min(...allD)),end=new Date(Math.max(...allD)),today=new Date();
     const totalDays=Math.max(1,Math.round((end-start)/86400000));
     const elapsed=Math.min(totalDays,Math.max(0,Math.round((today-start)/86400000)));
-    const tPts=(sp.tasks||[]).reduce((a,t)=>a+(t.pts||0),0);
-    const dPts=(sp.tasks||[]).filter(t=>t.status==="완료").reduce((a,t)=>a+(t.pts||0),0);
+    const tPts=allTasks.reduce((a,t)=>a+(t.pts||0),0);
+    const dPts=doneTasks.reduce((a,t)=>a+(t.pts||0),0);
     const W=560,H=200,P={t:20,r:20,b:36,l:44};
     const IW=W-P.l-P.r,IH=H-P.t-P.b;
     const px=d=>P.l+d/totalDays*IW;
@@ -512,7 +515,7 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     <div style={{display:"flex",border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
       {[["board","📋 스프린트 보드"],["gantt","📅 간트차트"],["burndown","📉 번다운"],["resources","👥 리소스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400}}>{l}</button>)}
     </div>
-    {view==="board"&&<Board/>}
+    {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="gantt"&&<Gantt/>}
     {view==="burndown"&&<Burndown/>}
     {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
