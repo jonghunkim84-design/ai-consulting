@@ -12,12 +12,23 @@ const HYPO={"카페/베이커리":["재고 수기 관리","발주 타이밍 놓�
 const SPRINT_STATUS=["백로그","진행중","완료","보류"];
 const ROLES=["컨설턴트(본인)","고객(사장님)","외주 개발자","기타"];
 const PRIORITY=["긴급","높음","보통","낮음"];
-const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"},"진행중":{bg:"#E6F1FB",c:"#185FA5"},"완료":{bg:"#EAF3DE",c:"#3B6D11"},"보류":{bg:"#FAEEDA",c:"#854F0B)"}};
+const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"},"진행중":{bg:"#E6F1FB",c:"#185FA5"},"완료":{bg:"#EAF3DE",c:"#3B6D11"},"보류":{bg:"#FAEEDA",c:"#854F0B"}};
 const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F0B"},"보통":{bg:"#E6F1FB",c:"#185FA5"},"낮음":{bg:"#F1EFE8",c:"#5F5E5A"}};
 
-async function claude(sys,usr,maxTok=1500){
-  const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,user:usr,max_tokens:maxTok})});
-  const d=await r.json();if(!r.ok)throw new Error(d.error||"API error");return d.text||"";
+async function claude(sys,usr,maxTok=1500,retries=2){
+  for(let i=0;i<=retries;i++){
+    try{
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,user:usr,max_tokens:maxTok})});
+      if(!r.ok){const d=await r.json();throw new Error(d.error||`HTTP ${r.status}`);}
+      const d=await r.json();
+      const text=d.text||"";
+      if(!text)throw new Error("빈 응답");
+      return text;
+    }catch(e){
+      if(i===retries)throw e;
+      await new Promise(res=>setTimeout(res,1000*(i+1)));
+    }
+  }
 }
 
 // ── UI 원자 컴포넌트 ──
@@ -260,11 +271,6 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
           };
         });
         const resources=(parsed.resources||[]).map((r,i)=>({id:Date.now()+i,name:r.name||"",role:r.role||"컨설턴트(본인)",avail:100}));
-        updPM({
-          sprints, resources:resources.length?resources:pm.resources,
-          velocity:parsed.velocity||20,
-          pjName:parsed.projectName||cl.name+" AI 솔루션"
-        });
         upd({pm:{
           ...cl.pm,
           sprints,
@@ -512,6 +518,7 @@ const PHASES=[
 const initClient=()=>({
   id:Date.now(),name:"",industry:"",size:"",region:"",aiLevel:"",
   status:"discovery",phase:0,step:0,phasesDone:[false,false,false],
+  updatedAt:new Date().toISOString(),
   hypothesis:[],directInfo:"",researchResult:"",interviewQ:"",
   prepCheck:{},iceCheck:{},iceMemo:"",
   notes:{q1:"",q2:"",q3:"",extra:""},audioFileName:"",transcribing:false,transcript:"",
@@ -534,84 +541,54 @@ export default function App(){
   const [view,setView]=useState("home");
   const [aiSt,setAiSt]=useState({});
   const [copied,setCopied]=useState("");
+  const [dbLoading,setDbLoading]=useState(true);
   const fileRef=useRef();
 
   // ── Supabase 연동 ──
-  const loadClients = async () => {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (error) { console.error('로드 실패:', error); return; }
-    const parsed = (data || []).map(row => ({
-      ...row.data,
-      id: row.id,
-      name: row.name,
-      industry: row.industry,
-      size: row.size,
-      region: row.region,
-      aiLevel: row.ai_level,
-      status: row.status,
-      phase: row.phase,
-      step: row.step,
-      phasesDone: row.phases_done || [false, false, false],
-    }))
-    setClients(parsed)
-  }
+  useEffect(()=>{
+    supabase.from('consulting_clients')
+      .select('id, data, updated_at')
+      .order('updated_at',{ascending:false})
+      .then(({data,error})=>{
+        if(!error&&data) setClients(data.map(row=>({...row.data,id:row.id})));
+        setDbLoading(false);
+      });
+  },[]);
 
-  const saveClient = async (client) => {
-const row = {
-      id: client.id,
-      name: client.name || '',
-      industry: client.industry || '',
-      size: client.size || '',
-      region: client.region || '',
-      ai_level: client.aiLevel || '',
-      status: client.status || 'discovery',
-      phase: client.phase || 0,
-      step: client.step || 0,
-      phases_done: client.phasesDone || [false, false, false],
-      data: client,
-    }
-    const { error } = await supabase
-      .from('clients')
-      .upsert(row, { onConflict: 'id' })
-    if (error) console.error('저장 실패:', error)
-  }
+  const saveClient = (client) => {
+    supabase.from('consulting_clients')
+      .upsert({id:client.id,data:client})
+      .then(({error})=>{if(error)console.error('저장 실패:',error);});
+  };
 
   const deleteClient = async (id) => {
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', id)
-    if (error) console.error('삭제 실패:', error)
-  }
-
-  useEffect(() => { loadClients() }, [])
+    const {error}=await supabase.from('consulting_clients').delete().eq('id',id);
+    if(error)console.error('삭제 실패:',error);
+  };
 
   const active=clients.find(c=>c.id===activeId);
   const upd = p => {
     setClients(cs => {
       const next = cs.map(c => {
-        if (c.id !== activeId) return c
-        const updated = { ...c, ...p }
-        saveClient(updated)
-        return updated
-      })
-      return next
-    })
-  }
+        if(c.id!==activeId) return c;
+        const updated={...c,...p,updatedAt:new Date().toISOString()};
+        saveClient(updated);
+        return updated;
+      });
+      return next;
+    });
+  };
   const updN=(k,p)=>setClients(cs=>cs.map(c=>c.id===activeId?{...c,[k]:{...c[k],...p}}:c));
   const aiGet=k=>aiSt[k]||{loading:false,result:null,error:false};
   const aiSet=(k,p)=>setAiSt(a=>({...a,[k]:{...a[k],...p}}));
   const runAI=async(k,sys,usr)=>{aiSet(k,{loading:true,result:null,error:false});try{aiSet(k,{loading:false,result:await claude(sys,usr),error:false});}catch{aiSet(k,{loading:false,result:null,error:true});}};
 
-  const addClient = () => {
-    const c = initClient()
-    setClients(cs => [...cs, c])
-    setActiveId(c.id)
-    setView("client")
-    saveClient(c)
+  const addClient = async () => {
+    const c=initClient();
+    await supabase.from('consulting_clients').insert({id:c.id,data:c});
+    setClients(cs=>[...cs,c]);
+    setActiveId(c.id);
+    setView("client");
   };
   const pc=ph=>[C.blue,C.teal,C.purple][ph]||C.blue;
   const pb=ph=>[C.blueBg,C.tealBg,C.purpleBg][ph]||C.blueBg;
@@ -633,6 +610,9 @@ const row = {
   const effectiveTool=(active?.buildTool)||chosenSol?.tool||"";
   const effectiveEffort=(active?.buildEffort)||chosenSol?.effort||"";
   const effectiveCost=(active?.buildCost)||chosenSol?.cost||"";
+
+  // 로딩 화면
+  if(dbLoading) return <div style={{maxWidth:760,margin:"0 auto",padding:"3rem 0",textAlign:"center",color:"var(--color-text-secondary)",fontFamily:"var(--font-sans)"}}><div style={{fontSize:32,marginBottom:12}}>⟳</div><div style={{fontSize:14}}>데이터 불러오는 중...</div></div>;
 
   // 홈
   if(view==="home") return <div style={{maxWidth:760,margin:"0 auto",padding:"1rem 0",fontFamily:"var(--font-sans)"}}>
@@ -657,7 +637,8 @@ const row = {
       <Btn v="blue" onClick={addClient}>+ 첫 고객 등록하기</Btn>
     </div>:clients.map(c=>{
       const ph=PHASES[c.phase]||PHASES[0];const col=pc(c.phase);const bg=pb(c.phase);
-      const prg=c.status==="complete"?100:Math.round((c.phase*5+c.step)/14*100);
+      const completedSteps=c.phasesDone.reduce((acc,done,i)=>acc+(done?PHASES[i].steps.length:(c.phase===i?c.step:0)),0);
+      const prg=c.status==="complete"?100:Math.round(completedSteps/14*100);
       return <div key={c.id} onClick={()=>{setActiveId(c.id);setView("client");}}
         style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"14px 16px",marginBottom:8,cursor:"pointer",background:"var(--color-background-primary)"}}
         onMouseEnter={e=>e.currentTarget.style.background="var(--color-background-secondary)"}
@@ -670,24 +651,16 @@ const row = {
               {c.industry&&<Chip label={c.industry} color={col} bg={bg}/>}
             </div>
             <div style={{fontSize:12,color:col,fontWeight:500}}>{c.status==="complete"?"✓ 전체 완료":`${ph.label} · ${ph.steps[c.step]||""}`}</div>
+            {c.updatedAt&&<div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:3}}>{new Date(c.updatedAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} 수정</div>}
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
             <div style={{fontSize:12,fontWeight:500,color:col,marginBottom:4}}>{prg}%</div>
             <div style={{width:60,height:3,background:"var(--color-background-secondary)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${prg}%`,background:col,borderRadius:2}}/></div>
           </div>
           <button
-            onClick={e => {
-              e.stopPropagation()
-              if (window.confirm(`${c.name} 고객을 삭제할까요?`)) {
-                deleteClient(c.id)
-                setClients(cs => cs.filter(x => x.id !== c.id))
-              }
-            }}
-            style={{fontSize:11,color:C.danger,background:"none",border:"none",
-              cursor:"pointer",fontFamily:"inherit",marginLeft:8,flexShrink:0}}
-          >
-            삭제
-          </button>
+            onClick={e=>{e.stopPropagation();if(window.confirm(`${c.name||"이 고객"}을 삭제할까요?`)){deleteClient(c.id);setClients(cs=>cs.filter(x=>x.id!==c.id));}}}
+            style={{fontSize:11,color:C.danger,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",marginLeft:8,flexShrink:0}}
+          >✕</button>
         </div>
       </div>;
     })}
@@ -696,7 +669,8 @@ const row = {
   if(!active) return null;
   const ph=PHASES[active.phase]||PHASES[0];
   const col=pc(active.phase),bg=pb(active.phase),steps=ph.steps;
-  const prg2=active.status==="complete"?100:Math.round((active.phase*5+active.step)/14*100);
+  const completedSteps2=active.phasesDone.reduce((acc,done,i)=>acc+(done?PHASES[i].steps.length:(active.phase===i?active.step:0)),0);
+  const prg2=active.status==="complete"?100:Math.round(completedSteps2/14*100);
 
   return <div style={{maxWidth:760,margin:"0 auto",padding:"1rem 0",fontFamily:"var(--font-sans)"}}>
     {/* 상단 네비 */}
