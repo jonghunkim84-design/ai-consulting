@@ -715,41 +715,99 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     const spWithDates=pm.sprints.filter(s=>s.start&&s.end);
     if(!spWithDates.length) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>스프린트에 시작일/종료일을 입력하면 번다운 차트가 표시됩니다.</div>;
     const allD=spWithDates.flatMap(s=>[new Date(s.start),new Date(s.end)]);
-    const start=new Date(Math.min(...allD)),end=new Date(Math.max(...allD)),today=new Date();
+    const start=new Date(Math.min(...allD));start.setHours(0,0,0,0);
+    const end=new Date(Math.max(...allD));end.setHours(0,0,0,0);
+    const today=new Date();today.setHours(0,0,0,0);
     const totalDays=Math.max(1,Math.round((end-start)/86400000));
     const elapsed=Math.min(totalDays,Math.max(0,Math.round((today-start)/86400000)));
     const tPts=allTasks.reduce((a,t)=>a+(t.pts||0),0);
     const dPts=doneTasks.reduce((a,t)=>a+(t.pts||0),0);
-    const W=560,H=200,P={t:20,r:20,b:36,l:44};
+    const remainPts=tPts-dPts;
+    const completedPct=tPts>0?Math.round(dPts/tPts*100):0;
+    const avgBurndown=elapsed>0?(dPts/elapsed).toFixed(1):"0.0";
+    const tasksRemaining=allTasks.length-doneTasks.length;
+    // SVG
+    const W=600,H=230,P={t:16,r:24,b:44,l:44};
     const IW=W-P.l-P.r,IH=H-P.t-P.b;
     const px=d=>P.l+d/totalDays*IW;
     const py=p=>P.t+IH-(p/Math.max(tPts,1))*IH;
-    const idealPath=Array.from({length:totalDays+1},(_,i)=>`${i===0?"M":"L"}${px(i)} ${py(tPts-tPts*i/totalDays)}`).join(" ");
-    const actualPts=Array.from({length:elapsed+1},(_,i)=>i===0?tPts:i===elapsed?tPts-dPts:tPts-dPts*(i/Math.max(elapsed,1)));
-    const actualPath=actualPts.map((p,i)=>`${i===0?"M":"L"}${px(i)} ${py(p)}`).join(" ");
+    // Ideal trend
+    const idealPath=`M${px(0)} ${py(tPts)} L${px(totalDays)} ${py(0)}`;
+    // Remaining area & line (linear approx: tPts→remainPts over elapsed days)
+    const actualPts=Array.from({length:elapsed+1},(_,i)=>({d:i,p:i===0?tPts:remainPts+(tPts-remainPts)*(1-i/Math.max(elapsed,1))}));
+    const areaPath=elapsed>0
+      ?actualPts.map((pt,i)=>`${i===0?"M":"L"}${px(pt.d)} ${py(pt.p)}`).join(" ")+` L${px(elapsed)} ${py(0)} L${px(0)} ${py(0)} Z`
+      :"";
+    const linePath=actualPts.map((pt,i)=>`${i===0?"M":"L"}${px(pt.d)} ${py(pt.p)}`).join(" ");
+    // Total scope (flat line)
+    const scopePath=`M${px(0)} ${py(tPts)} L${px(totalDays)} ${py(tPts)}`;
+    // Y ticks
+    const yTicks=[0,0.25,0.5,0.75,1].map(r=>({y:P.t+IH*r,v:Math.round(tPts*(1-r))}));
+    // X-axis: Fridays only
+    const fridays=[];
+    {const d=new Date(start);const dow=d.getDay();if(dow!==5)d.setDate(d.getDate()+(5-dow+7)%7);
+     while(d<=end){fridays.push({date:new Date(d),dn:Math.round((d-start)/86400000)});d.setDate(d.getDate()+7);}}
+    const todayX=px(elapsed);
     return <div>
-      <div style={{fontSize:13,marginBottom:12,display:"flex",gap:16,flexWrap:"wrap"}}>
-        <span>총 <strong>{tPts}pt</strong></span>
-        <span>완료 <strong style={{color:C.success}}>{dPts}pt</strong></span>
-        <span>잔여 <strong style={{color:C.warn}}>{tPts-dPts}pt</strong></span>
-        <span>진행률 <strong style={{color:C.blue}}>{prog}%</strong></span>
+      {/* 상단 헤더 */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:600,color:"var(--color-text-primary)",marginBottom:2}}>{pm.pjName||"프로젝트"} Sprint Burndown</div>
+          <div style={{fontSize:11,color:"var(--color-text-secondary)"}}>{start.toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})} – {end.toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})}</div>
+        </div>
+        <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"var(--color-text-secondary)"}}>Tasks Remaining</div>
+            <div style={{fontSize:30,fontWeight:700,lineHeight:1,color:"var(--color-text-primary)"}}>{tasksRemaining}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"var(--color-text-secondary)"}}>Total Scope</div>
+            <div style={{fontSize:30,fontWeight:700,lineHeight:1,color:"var(--color-text-primary)"}}>{tPts}</div>
+          </div>
+        </div>
       </div>
+      {/* 중단 통계 */}
+      <div style={{display:"flex",gap:28,marginBottom:10}}>
+        <div><span style={{fontSize:11,color:C.blue}}>Completed</span><span style={{fontSize:28,fontWeight:700,color:"var(--color-text-primary)",marginLeft:6}}>{completedPct}%</span></div>
+        <div><span style={{fontSize:11,color:"var(--color-text-secondary)"}}>Average burndown</span><span style={{fontSize:28,fontWeight:700,color:"var(--color-text-primary)",marginLeft:6}}>{avgBurndown}</span></div>
+      </div>
+      {/* 차트 */}
       <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%"}}>
-        {[0,0.25,0.5,0.75,1].map(r=>{const y=P.t+IH*r;const v=Math.round(tPts*(1-r));return <g key={r}><line x1={P.l} y1={y} x2={P.l+IW} y2={y} stroke="var(--color-border-tertiary)" strokeWidth="0.5"/><text x={P.l-4} y={y+4} textAnchor="end" fontSize="10" fill="var(--color-text-secondary)">{v}</text></g>;})}
-        <path d={idealPath} fill="none" stroke={C.gray} strokeWidth="1.5" strokeDasharray="5 3"/>
-        <path d={actualPath} fill="none" stroke={C.blue} strokeWidth="2"/>
-        <line x1={px(elapsed)} y1={P.t} x2={px(elapsed)} y2={P.t+IH} stroke={C.danger} strokeWidth="1" strokeDasharray="4 2"/>
-        <text x={px(elapsed)} y={P.t-4} textAnchor="middle" fontSize="10" fill={C.danger}>오늘</text>
-        <line x1={P.l} y1={P.t} x2={P.l} y2={P.t+IH} stroke="var(--color-border-secondary)" strokeWidth="0.5"/>
-        <line x1={P.l} y1={P.t+IH} x2={P.l+IW} y2={P.t+IH} stroke="var(--color-border-secondary)" strokeWidth="0.5"/>
-        <text x={P.l} y={P.t+IH+14} textAnchor="start" fontSize="10" fill="var(--color-text-secondary)">{start.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
-        <text x={P.l+IW/2} y={P.t+IH+14} textAnchor="middle" fontSize="10" fill="var(--color-text-secondary)">{new Date((start.getTime()+end.getTime())/2).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
-        <text x={P.l+IW} y={P.t+IH+14} textAnchor="end" fontSize="10" fill="var(--color-text-secondary)">{end.toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}</text>
-        <line x1={P.l+IW-100} y1={P.t+8} x2={P.l+IW-82} y2={P.t+8} stroke={C.gray} strokeWidth="1.5" strokeDasharray="5 3"/>
-        <text x={P.l+IW-77} y={P.t+12} fontSize="10" fill="var(--color-text-secondary)">이상선</text>
-        <line x1={P.l+IW-40} y1={P.t+8} x2={P.l+IW-22} y2={P.t+8} stroke={C.blue} strokeWidth="2"/>
-        <text x={P.l+IW-17} y={P.t+12} fontSize="10" fill="var(--color-text-secondary)">실제</text>
+        {/* 그리드 & Y축 */}
+        {yTicks.map(({y,v})=><g key={v}>
+          <line x1={P.l} y1={y} x2={P.l+IW} y2={y} stroke="#e5e7eb" strokeWidth="0.5"/>
+          <text x={P.l-6} y={y+4} textAnchor="end" fontSize="10" fill="#9ca3af">{v}</text>
+        </g>)}
+        {/* Remaining 면적 */}
+        {areaPath&&<path d={areaPath} fill="#2563eb" fillOpacity="0.85"/>}
+        {/* Remaining 선 */}
+        {linePath&&<path d={linePath} fill="none" stroke="#1d4ed8" strokeWidth="1.5"/>}
+        {/* Total Scope */}
+        <path d={scopePath} fill="none" stroke="#f97316" strokeWidth="2"/>
+        {/* Ideal Trend */}
+        <path d={idealPath} fill="none" stroke="#9ca3af" strokeWidth="1.5"/>
+        {/* 축 */}
+        <line x1={P.l} y1={P.t} x2={P.l} y2={P.t+IH} stroke="#d1d5db" strokeWidth="0.5"/>
+        <line x1={P.l} y1={P.t+IH} x2={P.l+IW} y2={P.t+IH} stroke="#d1d5db" strokeWidth="0.5"/>
+        {/* 오늘 선 */}
+        {elapsed>0&&elapsed<totalDays&&<>
+          <line x1={todayX} y1={P.t} x2={todayX} y2={P.t+IH} stroke={C.danger} strokeWidth="1" strokeDasharray="4 2"/>
+          <text x={todayX} y={P.t-4} textAnchor="middle" fontSize="9" fill={C.danger}>오늘</text>
+        </>}
+        {/* X축 금요일 레이블 */}
+        {fridays.map(({date,dn})=><g key={dn}>
+          <line x1={px(dn)} y1={P.t+IH} x2={px(dn)} y2={P.t+IH+4} stroke="#d1d5db" strokeWidth="0.5"/>
+          <text x={px(dn)} y={P.t+IH+16} textAnchor="middle" fontSize="9" fill="#9ca3af">
+            {date.toLocaleDateString("ko-KR",{month:"numeric",day:"numeric"})}
+          </text>
+        </g>)}
       </svg>
+      {/* 범례 */}
+      <div style={{display:"flex",gap:16,marginTop:6,fontSize:11,alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:12,height:12,background:"#2563eb",borderRadius:2}}/><span style={{color:"var(--color-text-secondary)"}}>Remaining</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:16,height:2,background:"#f97316"}}/><span style={{color:"var(--color-text-secondary)"}}>Total Scope</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:16,height:2,background:"#9ca3af"}}/><span style={{color:"var(--color-text-secondary)"}}>Ideal Trend</span></div>
+      </div>
     </div>;
   };
 
