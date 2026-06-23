@@ -449,10 +449,12 @@ function PMBoard({pm,updSprints,updPM}){
   </div>;
 }
 
-function PMGantt({pm,updSprints}){
+function PMGantt({pm,updSprints,updPM}){
   const [expanded,setExpanded]=useState({});
   const [assignModal,setAssignModal]=useState(null);
   const [selAssignee,setSelAssignee]=useState("");
+  const [showAddRes,setShowAddRes]=useState(false);
+  const [newResName,setNewResName]=useState("");
   const allTasksFlat=pm.sprints.flatMap(s=>s.tasks||[]);
   const taskCount={};allTasksFlat.forEach(t=>{taskCount[t.assignee]=(taskCount[t.assignee]||0)+1;});
   const totalTasks=Math.max(1,allTasksFlat.length);
@@ -546,30 +548,50 @@ function PMGantt({pm,updSprints}){
     <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:6}}>💡 태스크 바를 클릭하면 담당자를 배정할 수 있습니다.</div>
   </div></div>
   {assignModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setAssignModal(null)}>
-    <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",width:370,maxWidth:"92vw",maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-      <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>{assignModal.task.title||"(없음)"} — 담당자 배정</div>
-      <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:12}}>현재 담당자: {assignModal.task.assignee||"미배정"}</div>
-      <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:6}}>담당자 선택</div>
+    <div style={{background:"#ffffff",borderRadius:12,padding:"1.25rem",width:370,maxWidth:"92vw",maxHeight:"80vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{fontSize:13,fontWeight:500,marginBottom:4,color:"#111"}}>{assignModal.task.title||"(없음)"} — 담당자 배정</div>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:12}}>현재 담당자: {assignModal.task.assignee||"미배정"}</div>
+      <div style={{fontSize:11,fontWeight:500,color:"#6b7280",marginBottom:6}}>담당자 선택</div>
       {assigneeOpts.map(opt=>{
         const load=getLoad(opt);
         const isOverload=load>90;
         const isCurrent=opt===assignModal.task.assignee;
         const isSel=opt===selAssignee;
-        return <div key={opt} onClick={()=>setSelAssignee(opt)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,marginBottom:4,cursor:"pointer",border:`1.5px solid ${isSel?"var(--color-border-primary)":"var(--color-border-tertiary)"}`,background:isSel?"var(--color-background-secondary)":"transparent"}}>
-          <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${isSel?"var(--color-text-primary)":"var(--color-border-secondary)"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            {isSel&&<div style={{width:6,height:6,borderRadius:"50%",background:"var(--color-text-primary)"}}/>}
+        return <div key={opt} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,marginBottom:4,border:`1.5px solid ${isSel?"#374151":"#e5e7eb"}`,background:isSel?"#f3f4f6":"#fff"}}>
+          <div onClick={()=>setSelAssignee(opt)} style={{display:"flex",alignItems:"center",gap:8,flex:1,cursor:"pointer"}}>
+            <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${isSel?"#111":"#9ca3af"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              {isSel&&<div style={{width:6,height:6,borderRadius:"50%",background:"#111"}}/>}
+            </div>
+            <span style={{flex:1,fontSize:12,color:"#111"}}>{opt}</span>
+            {opt!=="미배정"&&<span style={{fontSize:11,color:isOverload?C.danger:"#6b7280"}}>{load}%{isOverload?" ⚠️과부하":""}</span>}
+            {isCurrent&&<span style={{fontSize:10,color:C.success,marginLeft:4}}>✅현재</span>}
           </div>
-          <span style={{flex:1,fontSize:12}}>{opt}</span>
-          {opt!=="미배정"&&<span style={{fontSize:11,color:isOverload?C.danger:"var(--color-text-secondary)"}}>{load}%{isOverload?" ⚠️과부하":""}</span>}
-          {isCurrent&&<span style={{fontSize:10,color:C.success,marginLeft:4}}>✅현재</span>}
+          {opt!=="미배정"&&updPM&&<button onClick={()=>{if(!window.confirm(`"${opt}" 담당자를 삭제할까요?`))return;updPM({resources:(pm.resources||[]).filter(r=>r.name!==opt)});if(selAssignee===opt)setSelAssignee("미배정");}} style={{fontSize:11,color:"#ef4444",background:"none",border:"none",cursor:"pointer",padding:"0 2px",flexShrink:0,lineHeight:1}}>✕</button>}
         </div>;
       })}
-      {conflicts.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:C.warnBg,borderRadius:8,fontSize:11,color:C.warn}}>
+      {/* 담당자 추가 */}
+      {showAddRes
+        ?<div style={{marginTop:8,border:"1px solid #e5e7eb",borderRadius:8,overflow:"hidden"}}>
+            <div style={{padding:"6px 10px",background:"#f9fafb",fontSize:11,fontWeight:500,color:"#6b7280",borderBottom:"1px solid #e5e7eb"}}>리소스 목록에서 선택</div>
+            {ROLES.filter(r=>!resNames.includes(r)).map(r=>(
+              <div key={r} onClick={()=>{if(updPM){updPM({resources:[...(pm.resources||[]),{id:Date.now(),name:r,role:r,avail:100}]});setSelAssignee(r);}setShowAddRes(false);}} style={{padding:"8px 12px",fontSize:12,color:"#111",cursor:"pointer",borderBottom:"1px solid #f3f4f6",background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#f3f4f6"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>{r}</div>
+            ))}
+            <div style={{padding:"6px 10px",background:"#f9fafb",borderTop:"1px solid #e5e7eb"}}>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input autoFocus value={newResName} onChange={e=>setNewResName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){const n=newResName.trim();if(n&&updPM){updPM({resources:[...(pm.resources||[]),{id:Date.now(),name:n,role:n,avail:100}]});setSelAssignee(n);}setNewResName("");setShowAddRes(false);}if(e.key==="Escape"){setNewResName("");setShowAddRes(false);}}} placeholder="직접 입력..." style={{flex:1,padding:"4px 8px",border:"1px solid #d1d5db",borderRadius:6,fontSize:12,fontFamily:"inherit",outline:"none"}}/>
+                <button onClick={()=>{const n=newResName.trim();if(n&&updPM){updPM({resources:[...(pm.resources||[]),{id:Date.now(),name:n,role:n,avail:100}]});setSelAssignee(n);}setNewResName("");setShowAddRes(false);}} style={{padding:"4px 10px",borderRadius:6,border:"none",background:C.purple,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>추가</button>
+                <button onClick={()=>{setNewResName("");setShowAddRes(false);}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",color:"#374151"}}>닫기</button>
+              </div>
+            </div>
+          </div>
+        :<button onClick={()=>setShowAddRes(true)} style={{width:"100%",marginTop:6,padding:"7px",border:"1.5px dashed #d1d5db",borderRadius:8,background:"transparent",cursor:"pointer",fontSize:12,color:"#6b7280",fontFamily:"inherit",textAlign:"center"}}>+ 담당자 추가</button>
+      }
+      {conflicts.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:"#fffbeb",borderRadius:8,fontSize:11,color:"#92400e"}}>
         <div style={{fontWeight:500,marginBottom:4}}>⚠️ 병렬 태스크 충돌</div>
         {conflicts.map(t=><div key={t.id}>{selAssignee}: {t.title}와 기간 겹침 ({t.startDate}~{t.dueDate})</div>)}
       </div>}
       <div style={{display:"flex",gap:8,marginTop:14,justifyContent:"flex-end"}}>
-        <button onClick={()=>setAssignModal(null)} style={{padding:"6px 14px",borderRadius:6,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>취소</button>
+        <button onClick={()=>{setAssignModal(null);setShowAddRes(false);setNewResName("");}} style={{padding:"6px 14px",borderRadius:6,border:"1px solid #d1d5db",background:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit",color:"#374151"}}>취소</button>
         <button onClick={saveAssignee} style={{padding:"6px 14px",borderRadius:6,border:"none",background:C.purple,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>저장</button>
       </div>
     </div>
@@ -768,7 +790,7 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
       {[["board","📋 스프린트 보드"],["gantt","📅 간트차트"],["burndown","📉 번다운"],["resources","👥 리소스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400}}>{l}</button>)}
     </div>
     {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
-    {view==="gantt"&&<PMGantt pm={pm} updSprints={updSprints}/>}
+    {view==="gantt"&&<PMGantt pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="burndown"&&<Burndown/>}
     {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
   </div>;
