@@ -324,6 +324,8 @@ function PMResources({pm,updPM}){
 }
 
 function PMBoard({pm,updSprints,updPM}){
+  const [collapsed,setCollapsed]=useState({});
+  const toggleSprint=si=>setCollapsed(c=>({...c,[si]:!c[si]}));
   const resNames=(pm.resources||[]).filter(r=>r.name).map(r=>r.name);
   const assigneeOpts=resNames.length?resNames:ROLES;
   const allTasksFlat=pm.sprints.flatMap(s=>(s.tasks||[]).map(t=>({...t,sprintName:s.name})));
@@ -361,14 +363,23 @@ function PMBoard({pm,updSprints,updPM}){
       <strong>🔴 기한 초과 태스크 {overdueTasks.length}건</strong> — {overdueTasks.slice(0,3).map(t=>`${t.title||"(없음)"} (${t.assignee}, ${t.dueDate?.slice(5).replace("-","/")})`).join(", ")}{overdueTasks.length>3?` 외 ${overdueTasks.length-3}건`:""}
     </div>}
 
-    {pm.sprints.map((sp,si)=><div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:14,fontWeight:500,color:C.purple}}>{sp.name}</span>
-        <Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
-        <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
-        <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
-        <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+    {pm.sprints.map((sp,si)=>{
+      const isCollapsed=!!collapsed[si];
+      const doneCnt=(sp.tasks||[]).filter(t=>t.status==="완료").length;
+      const totalCnt=(sp.tasks||[]).length;
+      return <div key={sp.id} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"1rem",marginBottom:"1rem"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:isCollapsed?0:10,flexWrap:"wrap"}}>
+        <button onClick={()=>toggleSprint(si)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:C.purple,padding:"0 2px",lineHeight:1,flexShrink:0}}>{isCollapsed?"▶":"▼"}</button>
+        <span onClick={()=>toggleSprint(si)} style={{fontSize:14,fontWeight:500,color:C.purple,cursor:"pointer"}}>{sp.name}</span>
+        {isCollapsed
+          ?<span style={{fontSize:12,color:"var(--color-text-secondary)",flex:1}}>{sp.goal&&`${sp.goal} · `}{totalCnt}개 태스크 ({doneCnt}/{totalCnt} 완료){sp.start&&sp.end?` · ${sp.start}~${sp.end}`:""}</span>
+          :<><Inp value={sp.goal} onChange={v=>updSprints(ss=>ss.map((s,i)=>i===si?{...s,goal:v}:s))} placeholder="스프린트 목표" style={{flex:1,minWidth:120,fontSize:12}}/>
+          <input type="date" value={sp.start} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,start:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/>
+          <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>~</span>
+          <input type="date" value={sp.end} onChange={e=>{const v=e.target.value;updSprints(ss=>ss.map((s,i)=>i===si?{...s,end:v}:s));}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,border:"1.5px solid #C5C5C5",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}/></>
+        }
       </div>
+      {!isCollapsed&&<>
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
         {SPRINT_STATUS.map((st,stIdx)=>{
@@ -445,7 +456,8 @@ function PMBoard({pm,updSprints,updPM}){
         {si===pm.sprints.length-1&&<Btn sm v="ghost" onClick={()=>updPM({sprints:[...pm.sprints,newSprint(pm.sprints.length+1)]})}>+ 스프린트</Btn>}
         {pm.sprints.length>1&&si===pm.sprints.length-1&&<Btn sm v="ghost" style={{color:C.danger,borderColor:C.danger}} onClick={()=>updPM({sprints:pm.sprints.slice(0,-1)})}>삭제</Btn>}
       </div>
-    </div>)}
+      </>}
+    </div>;})}
   </div>;
 }
 
