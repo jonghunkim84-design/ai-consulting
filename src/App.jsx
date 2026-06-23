@@ -1889,7 +1889,8 @@ ${selectedOpts.join("\n")||"없음"}
               :"스프린트 정보 없음";
             const sys=`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.`;
             const usr=`[확정 솔루션 제안서]\n${active.proposalDraft||"제안서 정보 없음"}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
-            runAI("b_rv",sys,usr);
+            aiSet("b_rv",{loading:true,result:null,error:false});
+            claude(sys,usr,4000).then(r=>aiSet("b_rv",{loading:false,result:r,error:false})).catch(()=>aiSet("b_rv",{loading:false,result:null,error:true}));
           }} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
           <AIBox loading={aiGet("b_rv").loading} result={aiGet("b_rv").result} error={aiGet("b_rv").error} color={C.purple}/>
         </Panel>
