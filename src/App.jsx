@@ -1883,7 +1883,7 @@ ${selectedOpts.join("\n")||"없음"}
         <PMPanel cl={active} upd={upd}/>
         <Panel title="개발 메모 & 이슈" icon="📝"><TA value={active.testNotes||""} onChange={v=>upd({testNotes:v})} placeholder="개발 메모, 이슈..." rows={4}/></Panel>
         <Panel title="AI 개발 조언" icon="🤖">
-          <Btn v="purple" onClick={()=>runAI("b_rv",`시니어 AI 개발자. 소상공인용 ${chosenSol?.type||"AI"} 솔루션 개발 조언. 실용적으로 250자 이내.`,`솔루션:${chosenSol?.title} 도구:${effectiveTool}\n기간:${effectiveEffort}\n메모:${active.testNotes||"없음"}`)} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
+          <Btn v="purple" onClick={()=>runAI("b_rv",`시니어 AI 개발자. 소상공인용 ${chosenSol?.type||"AI"} 솔루션 개발 조언. 실용적으로 250자 이내.`,`고객업종:${active.industry||"미입력"} AI친숙도:${active.aiLevel||"미입력"}\nPainPoint:${(active.painPoints||[]).filter(p=>p.title).map(p=>p.title).join(", ")||"없음"}\n솔루션:${chosenSol?.title} 도구:${effectiveTool}\n기간:${effectiveEffort}\n메모:${active.testNotes||"없음"}`)} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
           <AIBox loading={aiGet("b_rv").loading} result={aiGet("b_rv").result} error={aiGet("b_rv").error} color={C.purple}/>
         </Panel>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn><Btn v="purple" onClick={()=>next(2)}>MVP 완료 → 파일럿 →</Btn></div>
