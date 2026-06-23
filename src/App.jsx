@@ -18,10 +18,10 @@ const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F
 async function claude(sys,usr,maxTok=1500,retries=2){
   for(let i=0;i<=retries;i++){
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:sys,user:usr,max_tokens:maxTok})});
-      if(!r.ok){const d=await r.json();throw new Error(d.error||`HTTP ${r.status}`);}
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}]})});
+      if(!r.ok){const d=await r.json();const msg=typeof d.error==="string"?d.error:(d.error?.message||JSON.stringify(d.error)||`HTTP ${r.status}`);throw new Error(msg);}
       const d=await r.json();
-      const text=d.text||"";
+      const text=d.content?.[0]?.text||d.text||"";
       if(!text)throw new Error("빈 응답");
       return text;
     }catch(e){
@@ -449,8 +449,27 @@ function PMBoard({pm,updSprints,updPM}){
   </div>;
 }
 
-function PMGantt({pm}){
+function PMGantt({pm,updSprints}){
   const [expanded,setExpanded]=useState({});
+  const [assignModal,setAssignModal]=useState(null);
+  const [selAssignee,setSelAssignee]=useState("");
+  const allTasksFlat=pm.sprints.flatMap(s=>s.tasks||[]);
+  const taskCount={};allTasksFlat.forEach(t=>{taskCount[t.assignee]=(taskCount[t.assignee]||0)+1;});
+  const totalTasks=Math.max(1,allTasksFlat.length);
+  const getLoad=name=>Math.round((taskCount[name]||0)/totalTasks*100);
+  const resNames=(pm.resources||[]).filter(r=>r.name).map(r=>r.name);
+  const assigneeOpts=resNames.length?[...resNames,"미배정"]:["미배정",...ROLES];
+  const getConflicts=(assignee,task)=>{
+    if(!task.startDate||!task.dueDate||!assignee||assignee==="미배정")return[];
+    return allTasksFlat.filter(t=>t.id!==task.id&&t.assignee===assignee&&t.startDate&&t.dueDate&&t.startDate<=task.dueDate&&t.dueDate>=task.startDate);
+  };
+  const conflicts=assignModal?getConflicts(selAssignee,assignModal.task):[];
+  const saveAssignee=()=>{
+    if(!updSprints||!assignModal)return;
+    const taskId=assignModal.task.id;
+    updSprints(sprints=>sprints.map(sp=>({...sp,tasks:(sp.tasks||[]).map(t=>t.id===taskId?{...t,assignee:selAssignee}:t)})));
+    setAssignModal(null);
+  };
   const swd=pm.sprints.filter(s=>s.start&&s.end);
   if(!swd.length) return <div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>스프린트에 시작일/종료일을 입력하면 간트차트가 표시됩니다.</div>;
   const allD=swd.flatMap(s=>[new Date(s.start),new Date(s.end)]);
@@ -468,7 +487,7 @@ function PMGantt({pm}){
    xLabels.push({date:new Date(mx),pct:100});}
   const filteredLabels=xLabels.filter((l,i)=>i===0||l.pct-xLabels[i-1].pct>8);
   const toggle=(id)=>setExpanded(e=>({...e,[id]:!e[id]}));
-  return <div style={{overflowX:"auto"}}><div style={{minWidth:480}}>
+  return <><div style={{overflowX:"auto"}}><div style={{minWidth:480}}>
     <div style={{display:"flex",marginBottom:8}}>
       <div style={{width:170,flexShrink:0,fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>스프린트 / 태스크</div>
       <div style={{flex:1,position:"relative",height:16}}><div style={{position:"absolute",left:`${todayL}%`,top:-2,fontSize:10,color:C.danger,fontWeight:500,transform:"translateX(-50%)"}}>오늘</div></div>
@@ -506,7 +525,7 @@ function PMGantt({pm}){
             </div>
             <div style={{flex:1,position:"relative",height:18,background:"var(--color-background-secondary)",borderRadius:3}}>
               <div style={{position:"absolute",left:`${todayL}%`,top:0,bottom:0,borderLeft:`1px dashed ${C.danger}`,opacity:0.5,zIndex:2}}/>
-              <div title={`${task.title} · ${task.assignee} · ${task.startDate}~${task.dueDate}${depTitles.length?` · 선행: ${depTitles.join(", ")}`:""}`} style={{position:"absolute",left:`${tl}%`,width:`${tw}%`,top:2,height:14,background:tCol,borderRadius:3,opacity:0.85,minWidth:3}}/>
+              <div onClick={()=>{setAssignModal({task});setSelAssignee(task.assignee||"미배정");}} title={`${task.title} · ${task.assignee} · ${task.startDate}~${task.dueDate}${depTitles.length?` · 선행: ${depTitles.join(", ")}`:""} (클릭: 담당자 배정)`} style={{position:"absolute",left:`${tl}%`,width:`${tw}%`,top:2,height:14,background:tCol,borderRadius:3,opacity:0.85,minWidth:3,cursor:"pointer"}}/>
             </div>
           </div>;
         })}
@@ -524,7 +543,38 @@ function PMGantt({pm}){
       {SPRINT_COLS.slice(0,swd.length).map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:14,height:8,background:c,borderRadius:2}}/>{swd[i]?.name}</div>)}
       {allAssignees.length>0&&<>{allAssignees.map(a=><div key={a} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:10,height:10,background:aColor[a],borderRadius:2,opacity:0.85}}/>{a}</div>)}<div style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:10,height:10,background:C.danger,borderRadius:2}}/>기한초과</div></>}
     </div>
-  </div></div>;
+    <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:6}}>💡 태스크 바를 클릭하면 담당자를 배정할 수 있습니다.</div>
+  </div></div>
+  {assignModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setAssignModal(null)}>
+    <div style={{background:"var(--color-background-primary)",borderRadius:12,padding:"1.25rem",width:370,maxWidth:"92vw",maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{fontSize:13,fontWeight:500,marginBottom:4}}>{assignModal.task.title||"(없음)"} — 담당자 배정</div>
+      <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:12}}>현재 담당자: {assignModal.task.assignee||"미배정"}</div>
+      <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:6}}>담당자 선택</div>
+      {assigneeOpts.map(opt=>{
+        const load=getLoad(opt);
+        const isOverload=load>90;
+        const isCurrent=opt===assignModal.task.assignee;
+        const isSel=opt===selAssignee;
+        return <div key={opt} onClick={()=>setSelAssignee(opt)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,marginBottom:4,cursor:"pointer",border:`1.5px solid ${isSel?"var(--color-border-primary)":"var(--color-border-tertiary)"}`,background:isSel?"var(--color-background-secondary)":"transparent"}}>
+          <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${isSel?"var(--color-text-primary)":"var(--color-border-secondary)"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {isSel&&<div style={{width:6,height:6,borderRadius:"50%",background:"var(--color-text-primary)"}}/>}
+          </div>
+          <span style={{flex:1,fontSize:12}}>{opt}</span>
+          {opt!=="미배정"&&<span style={{fontSize:11,color:isOverload?C.danger:"var(--color-text-secondary)"}}>{load}%{isOverload?" ⚠️과부하":""}</span>}
+          {isCurrent&&<span style={{fontSize:10,color:C.success,marginLeft:4}}>✅현재</span>}
+        </div>;
+      })}
+      {conflicts.length>0&&<div style={{marginTop:10,padding:"8px 10px",background:C.warnBg,borderRadius:8,fontSize:11,color:C.warn}}>
+        <div style={{fontWeight:500,marginBottom:4}}>⚠️ 병렬 태스크 충돌</div>
+        {conflicts.map(t=><div key={t.id}>{selAssignee}: {t.title}와 기간 겹침 ({t.startDate}~{t.dueDate})</div>)}
+      </div>}
+      <div style={{display:"flex",gap:8,marginTop:14,justifyContent:"flex-end"}}>
+        <button onClick={()=>setAssignModal(null)} style={{padding:"6px 14px",borderRadius:6,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>취소</button>
+        <button onClick={saveAssignee} style={{padding:"6px 14px",borderRadius:6,border:"none",background:C.purple,color:"#fff",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>저장</button>
+      </div>
+    </div>
+  </div>}
+  </>;
 }
 
 function PMPanel({cl,upd}){
@@ -544,13 +594,41 @@ function PMPanel({cl,upd}){
     const effort=(cl.buildEffort)||(chosenSols[0]?.effort)||cl.timeline||"2~4주";
     try{
       const todayStr=new Date().toISOString().split("T")[0];
+
+      // 8-3: 스프린트 일정 산출 (기존 날짜 우선, 없으면 기간 기반 균등 배분)
+      const addCalDays=(base,n)=>{const d=new Date(base);d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];};
+      const effortDays={"1주 이내":7,"2~4주":21,"1~3개월":60,"3개월+":90}[effort]||42;
+      const existingSprints=cl.pm?.sprints||[];
+      const numSprints=Math.max(2,Math.min(3,Math.round(effortDays/14)));
+      const spDur=Math.floor(effortDays/numSprints);
+      const preSprintSchedules=Array.from({length:numSprints},(_,i)=>{
+        const ex=existingSprints[i];
+        if(ex?.start&&ex?.end)return{name:ex.name||`Sprint ${i+1}`,startDate:ex.start,endDate:ex.end};
+        const s=addCalDays(todayStr,i*spDur);
+        const e=i===numSprints-1?addCalDays(todayStr,effortDays-1):addCalDays(todayStr,(i+1)*spDur-1);
+        return{name:`Sprint ${i+1}`,startDate:s,endDate:e};
+      });
+      const sprintScheduleStr=preSprintSchedules.map(s=>`- ${s.name}: ${s.startDate} ~ ${s.endDate}`).join("\n");
+
       const r=await claude(
         `당신은 Agile PM 전문가입니다. 소상공인 AI 솔루션 개발 프로젝트 플랜을 생성하세요.
 반드시 순수 JSON만 출력 (마크다운 백틱 없이, 설명 없이, JSON만):
 {"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","daysFromStart":0,"durationDays":14,"tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
-규칙: 스프린트 2~3개, 태스크 스프린트당 4~6개, pts 1~5
+규칙: 스프린트 ${numSprints}개, 태스크 스프린트당 4~6개, pts 1~5
 의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
-날짜 계산(프로젝트 시작일=${todayStr}): 1)선행없는 태스크=오늘부터 2)선행있는 태스크=선행 dueDate+1영업일 3)dueDate=startDate+(pts-1)영업일(주말제외) 4)같은 담당자 병렬 태스크는 겹치지 않게 조정`,
+
+스프린트 일정 (반드시 준수):
+${sprintScheduleStr}
+
+태스크 날짜 계산 규칙 (스프린트 범위 우선):
+1. 각 태스크의 startDate와 dueDate는 반드시 소속 스프린트의 startDate~endDate 범위 안에 있어야 한다
+2. 선행 태스크 없음: 스프린트 startDate부터 시작
+3. 선행 태스크 있고 같은 스프린트 내: 선행 태스크 dueDate + 1영업일
+4. 선행 태스크가 이전 스프린트 소속: 현재 스프린트 startDate부터 시작
+5. dueDate = startDate + (pts - 1)영업일. 단 스프린트 endDate를 초과할 수 없다
+6. 주말(토·일) 건너뜀
+7. 같은 담당자 병렬 태스크는 겹치지 않게 순차 배치
+8. 스프린트 내 포인트 합이 기간을 초과하면 마지막 태스크 dueDate를 스프린트 endDate로 클램핑`,
         `고객:${cl.name||"고객"} 업종:${cl.industry||"미정"} AI친숙도:${cl.aiLevel||"초급"}
 Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
 솔루션:${solDesc||"AI 솔루션"} 도구:${tools} 예상기간:${effort}
@@ -566,23 +644,27 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
         if(m){ try{ parsed=JSON.parse(m[0]); }catch{} }
       }
       if(parsed?.sprints){
-        const today=new Date();
         const sprints=parsed.sprints.map((sp,i)=>{
-          const start=new Date(today); start.setDate(start.getDate()+(sp.daysFromStart||i*14));
-          const end=new Date(start); end.setDate(end.getDate()+(sp.durationDays||14)-1);
-          const fmt=d=>d.toISOString().split("T")[0];
-          return {
-            id:Date.now()+Math.random(), num:i+1,
-            name:sp.name||`Sprint ${i+1}`, goal:sp.goal||"",
-            start:fmt(start), end:fmt(end),
-            tasks:(sp.tasks||[]).map(t=>({
-              id:t.id||(Date.now()+Math.random()), sid:0,
-              title:t.title||"", assignee:t.assignee||"컨설턴트(본인)",
-              priority:t.priority||"보통", status:t.status||"백로그", pts:t.pts||3,
+          // 스프린트 바 날짜는 preSprintSchedules 기준으로 고정 (AI daysFromStart 무시)
+          const pre=preSprintSchedules[i]||preSprintSchedules[preSprintSchedules.length-1];
+          const spStart=pre.startDate;const spEnd=pre.endDate;
+          // 8-4: 태스크 날짜를 스프린트 범위로 클램핑
+          const clampedTasks=(sp.tasks||[]).map(t=>{
+            let sd=t.startDate||spStart;let dd=t.dueDate||spEnd;
+            console.log(`[clamp] sprint${i+1} spStart=${spStart} spEnd=${spEnd} task="${t.title?.slice(0,15)}" sd=${sd} dd=${dd}`);
+            if(sd<spStart)sd=spStart;if(sd>spEnd)sd=spEnd;
+            if(dd<spStart)dd=spStart;if(dd>spEnd)dd=spEnd;
+            if(sd>dd)sd=dd;
+            console.log(`[clamp] → sd=${sd} dd=${dd}`);
+            return{
+              id:t.id||(Date.now()+Math.random()),sid:0,
+              title:t.title||"",assignee:t.assignee||"컨설턴트(본인)",
+              priority:t.priority||"보통",status:t.status||"백로그",pts:t.pts||3,
               dependencies:(t.dependencies||[]).map(String),
-              startDate:t.startDate||null, dueDate:t.dueDate||null, manualDates:false
-            }))
-          };
+              startDate:sd,dueDate:dd,manualDates:false
+            };
+          });
+          return{id:Date.now()+Math.random(),num:i+1,name:sp.name||`Sprint ${i+1}`,goal:sp.goal||"",start:spStart,end:spEnd,tasks:clampedTasks};
         });
         const resources=(parsed.resources||[]).map((r,i)=>({id:Date.now()+i,name:r.name||"",role:r.role||"컨설턴트(본인)",avail:100}));
         upd({pm:{
@@ -686,7 +768,7 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
       {[["board","📋 스프린트 보드"],["gantt","📅 간트차트"],["burndown","📉 번다운"],["resources","👥 리소스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400}}>{l}</button>)}
     </div>
     {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
-    {view==="gantt"&&<PMGantt pm={pm}/>}
+    {view==="gantt"&&<PMGantt pm={pm} updSprints={updSprints}/>}
     {view==="burndown"&&<Burndown/>}
     {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
   </div>;
@@ -725,6 +807,7 @@ export default function App(){
   const [view,setView]=useState("home");
   const [aiSt,setAiSt]=useState({});
   const [copied,setCopied]=useState("");
+  const [sttToast,setSttToast]=useState("");
   const [dbLoading,setDbLoading]=useState(true);
   const fileRef=useRef();
 
@@ -944,7 +1027,7 @@ export default function App(){
           <div style={{fontSize:12,lineHeight:1.7,whiteSpace:"pre-wrap",color:"var(--color-text-secondary)",maxHeight:180,overflowY:"auto",background:"var(--color-background-primary)",borderRadius:8,padding:"10px 12px"}}>{active.interviewQ}</div>
         </Panel>}
         <Panel title="핵심 3질문 메모" icon="❓">
-          {[["1","하루 일과를 말씀해 주세요. 아침부터 문 닫을 때까지 어떻게 흘러가나요?","q1"],["2","시간이 제일 많이 걸리는 일, 실수가 잦은 일은 뭔가요?","q2"],["3","자다가 걱정되는 일, 월말에 골치 아픈 일이 있나요?","q3"]].map(([n,q,k])=><div key={k} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"10px 12px",marginBottom:10,background:"var(--color-background-secondary)"}}><div style={{fontSize:11,fontWeight:500,color:C.warn,marginBottom:4}}>Q{n}</div><div style={{fontSize:13,marginBottom:8,lineHeight:1.5}}>"{q}"</div><TA value={active.notes[k]} onChange={v=>updN("notes",{[k]:v})} placeholder="고객 답변 메모..." rows={3}/></div>)}
+          {[["1","하루 일과를 말씀해 주세요. 아침부터 문 닫을 때까지 어떻게 흘러가나요?","q1"],["2","시간이 제일 많이 걸리는 일, 실수가 잦은 일은 뭔가요?","q2"],["3","자다가 걱정되는 일, 월말에 골치 아픈 일이 있나요?","q3"]].map(([n,q,k])=><div key={k} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"10px 12px",marginBottom:10,background:"var(--color-background-secondary)"}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}><div style={{fontSize:11,fontWeight:500,color:C.warn}}>Q{n}</div>{active.notesAutoFilled?.[k]&&<span style={{fontSize:10,background:C.blue,color:"#fff",padding:"1px 6px",borderRadius:8,lineHeight:1.4}}>🤖 자동입력</span>}</div><div style={{fontSize:13,marginBottom:8,lineHeight:1.5}}>"{q}"</div><TA value={active.notes[k]} onChange={v=>{updN("notes",{[k]:v});if(active.notesAutoFilled?.[k])updN("notesAutoFilled",{[k]:false});}} placeholder="고객 답변 메모..." rows={3}/></div>)}
           <FL c="추가 탐색 메모"/><TA value={active.notes.extra} onChange={v=>updN("notes",{extra:v})} placeholder="예산, 도구, 직원 관련..." rows={3}/>
         </Panel>
         <Panel title="녹음 파일 업로드" icon="🎙">
@@ -952,21 +1035,20 @@ export default function App(){
           {active.transcribing && (
             <div style={{display:"flex",alignItems:"center",gap:8,padding:12,
               background:"#f9fafb",borderRadius:8,marginTop:8,fontSize:13,color:"#6b7280"}}>
-              ⟳ Whisper AI가 음성을 텍스트로 변환하고 있습니다...
+              ⟳ {active.transcribing==="claude"?"고객 답변 정리 중...":"음성 파일 변환 중..."}
             </div>
           )}
-          {active.transcript && !active.transcribing && (
+          {active.extractedQuestions && !active.transcribing && (
             <div style={{marginTop:10}}>
               <div style={{fontSize:12,fontWeight:500,color:"#111",marginBottom:6}}>
-                📝 음성 변환 결과 (자동 생성)
+                📝 인터뷰 고객 답변 정리
               </div>
-              <div style={{background:"#1a1a2e",borderRadius:8,padding:"12px 14px",
-                fontSize:13,color:"#90ee90",lineHeight:1.8,whiteSpace:"pre-wrap",
-                maxHeight:200,overflowY:"auto"}}>
-                {active.transcript}
+              <div style={{borderTop:"1px solid var(--color-border-tertiary)",borderBottom:"1px solid var(--color-border-tertiary)",padding:"10px 0",fontSize:13,lineHeight:1.9,whiteSpace:"pre-wrap",maxHeight:200,overflowY:"auto",color:"var(--color-text-primary)"}}>
+                {active.extractedQuestions}
               </div>
-              <div style={{fontSize:12,color:"#6b7280",marginTop:6}}>
-                💡 위 내용이 STEP 4 AI 분석에 자동으로 활용됩니다.
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6}}>
+                <div style={{fontSize:11,color:"var(--color-text-secondary)"}}>※ AI가 고객 답변 핵심 내용만 추출·정제한 결과입니다.</div>
+                <button onClick={()=>{navigator.clipboard.writeText(active.extractedQuestions);setCopied("stt");setTimeout(()=>setCopied(""),2000);}} style={{fontSize:11,padding:"2px 8px",border:"0.5px solid var(--color-border-secondary)",borderRadius:6,background:"transparent",cursor:"pointer",fontFamily:"inherit"}}>{copied==="stt"?"✓ 복사됨":"📋 복사"}</button>
               </div>
             </div>
           )}
@@ -974,24 +1056,42 @@ export default function App(){
             onChange={async e => {
               const file = e.target.files[0]
               if (!file) return
-              upd({ audioFileName: file.name, transcribing: true, transcript: '' })
+              upd({ audioFileName: file.name, transcribing: "whisper", transcript: '', extractedQuestions: '' })
 
               try {
                 const formData = new FormData()
                 const ext = file.name.split('.').pop() || 'mp3'
                 formData.append('audio', file, `audio.${ext}`)
 
-                const res = await fetch('/api/transcribe', {
-                  method: 'POST',
-                  body: formData,
-                })
+                const res = await fetch('/api/transcribe', { method: 'POST', body: formData })
                 const data = await res.json()
 
-                if (data.text) {
-                  upd({ transcript: data.text, transcribing: false })
-                } else {
+                if (data.error) {
                   upd({ transcribing: false })
-                  alert('변환 실패: ' + (data.error || '알 수 없는 오류'))
+                  alert('변환 실패: ' + data.error)
+                  return
+                }
+
+                upd({ transcribing: "claude" })
+                await new Promise(r => setTimeout(r, 100))
+
+                const raw = data.raw || data.text || ''
+                const questions = data.summary || raw
+                const { q1Match, q2Match, q3Match } = data
+
+                const currentNotes = active.notes || {}
+                const newNotes = { ...currentNotes }
+                const autoFilled = { ...(active.notesAutoFilled || {}) }
+                let anyFilled = false
+                if (q1Match && !currentNotes.q1) { newNotes.q1 = q1Match; autoFilled.q1 = true; anyFilled = true }
+                if (q2Match && !currentNotes.q2) { newNotes.q2 = q2Match; autoFilled.q2 = true; anyFilled = true }
+                if (q3Match && !currentNotes.q3) { newNotes.q3 = q3Match; autoFilled.q3 = true; anyFilled = true }
+
+                upd({ transcript: raw, extractedQuestions: questions, transcribing: false, notes: newNotes, notesAutoFilled: autoFilled })
+
+                if (anyFilled) {
+                  setSttToast("Q1~Q3 핵심 질문이 자동으로 입력되었습니다.")
+                  setTimeout(() => setSttToast(""), 3000)
                 }
               } catch (err) {
                 upd({ transcribing: false })
@@ -1550,5 +1650,6 @@ ${selectedOpts.join("\n")||"없음"}
       <div style={{fontSize:13,lineHeight:1.8,marginBottom:16}}><strong>{active.name}</strong> 고객의 AI 컨설팅 프로젝트가 모두 완료되었습니다.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="success" onClick={()=>setView("home")}>← 고객 목록으로</Btn><Btn v="blue" onClick={addClient}>+ 신규 고객 등록</Btn></div>
     </Panel>}
+    {sttToast&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,zIndex:9999,pointerEvents:"none",whiteSpace:"nowrap"}}>{sttToast}</div>}
   </div>;
 }

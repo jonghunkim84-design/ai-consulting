@@ -3,7 +3,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { system, user, max_tokens = 1200 } = req.body
+  const { system, user, max_tokens = 1200, model, messages } = req.body
+  const actualMessages = messages || [{ role: 'user', content: user }]
+  const actualModel = model || 'claude-sonnet-4-6'
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -14,10 +16,10 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: actualModel,
         max_tokens,
         system,
-        messages: [{ role: 'user', content: user }],
+        messages: actualMessages,
       }),
     })
 
