@@ -6,6 +6,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      watch: {
+        ignored: ["**/*.tmp", "**/*.temp", "**/~$*"],
+      },
       proxy: {
         "/api/claude": {
           target: "https://api.anthropic.com",

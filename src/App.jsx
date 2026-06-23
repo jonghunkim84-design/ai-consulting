@@ -215,7 +215,7 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
 }
 
 // ── 신규 기능 3: Agile PM (스프린트 보드 + 간트 + 번다운 + 리소스) ──
-const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3,dependencies:[],startDate:null,dueDate:null,manualDates:false});
+const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3,dependencies:[],startDate:null,dueDate:null,manualDates:false,input:[],output:[],description:""});
 const newSprint=(n)=>({id:Date.now()+Math.random(),num:n,name:`Sprint ${n}`,goal:"",start:"",end:"",tasks:[]});
 
 function PMResources({pm,updPM}){
@@ -599,6 +599,148 @@ function PMGantt({pm,updSprints,updPM}){
   </>;
 }
 
+function PMProcess({pm}){
+  const [selSprint,setSelSprint]=useState("all");
+  const [selTask,setSelTask]=useState(null);
+  const SP_COLS=[{border:"#3B82F6",bg:"#EFF6FF"},{border:"#10B981",bg:"#ECFDF5"},{border:"#8B5CF6",bg:"#F5F3FF"},{border:"#F59E0B",bg:"#FEF3C7"}];
+  const GRAY={border:"#9CA3AF",bg:"#F9FAFB"};
+  const sprints=pm.sprints||[];
+  const allTaskMap={};
+  sprints.forEach((sp,si)=>(sp.tasks||[]).forEach(t=>{allTaskMap[String(t.id)]={...t,_si:si};}));
+  let displayTasks;
+  const spF=selSprint==="all"?null:parseInt(selSprint);
+  if(spF===null){
+    displayTasks=sprints.flatMap((sp,si)=>(sp.tasks||[]).map(t=>({...t,_si:si,_sn:sp.name,_sc:SP_COLS[si%SP_COLS.length]})));
+  }else{
+    displayTasks=(sprints[spF]?.tasks||[]).map(t=>({...t,_si:spF,_sn:sprints[spF].name,_sc:SP_COLS[spF%SP_COLS.length]}));
+  }
+  const dtMap={};displayTasks.forEach(t=>{dtMap[String(t.id)]=t;});
+  // 컬럼 계산 (CPM)
+  const colOf={};
+  const getCol=(id,vis=new Set())=>{
+    if(colOf[id]!==undefined)return colOf[id];
+    if(vis.has(id)){colOf[id]=0;return 0;}
+    vis.add(id);
+    const t=dtMap[id];
+    if(!t){colOf[id]=0;return 0;}
+    const deps=(t.dependencies||[]).map(String).filter(d=>dtMap[d]);
+    if(!deps.length){colOf[id]=0;return 0;}
+    const c=Math.max(...deps.map(d=>getCol(d,new Set(vis))))+1;
+    colOf[id]=c;return c;
+  };
+  displayTasks.forEach(t=>getCol(String(t.id)));
+  const byCol={};
+  displayTasks.forEach(t=>{const c=colOf[String(t.id)]||0;(byCol[c]=byCol[c]||[]).push(t);});
+  const NW=160,NH=72,HGAP=80,VGAP=50,PAD=16;
+  const maxCol=Object.keys(byCol).length?Math.max(...Object.keys(byCol).map(Number)):0;
+  const maxRows=Object.values(byCol).length?Math.max(...Object.values(byCol).map(a=>a.length)):1;
+  const svgW=Math.max((maxCol+1)*(NW+HGAP)-HGAP+PAD*2,320);
+  const svgH=Math.max(maxRows*(NH+VGAP)-VGAP+PAD*2,120);
+  const nodePos={};
+  Object.entries(byCol).forEach(([col,group])=>{
+    const cn=parseInt(col);
+    const totalH=group.length*NH+(group.length-1)*VGAP;
+    const sy=(svgH-totalH)/2;
+    group.forEach((t,i)=>{nodePos[String(t.id)]={x:PAD+cn*(NW+HGAP),y:sy+i*(NH+VGAP)};});
+  });
+  const wrapTitle=title=>{
+    if(!title)return['(없음)'];
+    if(title.length<=22)return[title];
+    const bp=title.lastIndexOf(' ',22);
+    if(bp>4)return[title.slice(0,bp),title.slice(bp+1,bp+23)+(title.length>bp+23?'…':'')];
+    return[title.slice(0,22),title.slice(22,44)+(title.length>44?'…':'')];
+  };
+  const crossDeps=spF!==null?displayTasks.filter(t=>(t.dependencies||[]).some(d=>{const dt=allTaskMap[String(d)];return dt&&dt._si!==spF;})):[];
+  const selTaskData=selTask?displayTasks.find(t=>String(t.id)===selTask):null;
+  if(!displayTasks.length)return<div style={{padding:"2rem",textAlign:"center",color:"var(--color-text-secondary)",fontSize:13}}>태스크가 없습니다. AI 플랜을 먼저 생성해 주세요.</div>;
+  return<div>
+    {/* 컨트롤 */}
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+      <span style={{fontSize:12,fontWeight:500,color:"var(--color-text-secondary)"}}>표시 범위</span>
+      <select value={selSprint} onChange={e=>{setSelSprint(e.target.value);setSelTask(null);}} style={{padding:"4px 10px",border:"1px solid var(--color-border-secondary)",borderRadius:6,fontSize:12,fontFamily:"inherit",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}>
+        <option value="all">전체 시스템 프로세스</option>
+        {sprints.map((sp,i)=><option key={i} value={String(i)}>{sp.name}</option>)}
+      </select>
+      <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>노드 클릭 → Input/Output 확인</span>
+    </div>
+    {/* 범례 */}
+    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:10}}>
+      {sprints.slice(0,4).map((sp,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:13,height:13,borderRadius:3,background:SP_COLS[i%SP_COLS.length].bg,border:`1.5px solid ${SP_COLS[i%SP_COLS.length].border}`}}/><span style={{color:"var(--color-text-secondary)"}}>{sp.name}</span></div>)}
+      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11}}><div style={{width:13,height:13,borderRadius:3,background:GRAY.bg,border:`1.5px solid ${GRAY.border}`}}/><span style={{color:"var(--color-text-secondary)"}}>미배정</span></div>
+    </div>
+    {/* 플로우차트 */}
+    <div style={{overflowX:"auto",border:"1px solid var(--color-border-tertiary)",borderRadius:8,background:"#fafafa"}}>
+      <svg width={svgW} height={svgH} style={{display:"block"}}>
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L0,8 L8,4 z" fill="#9ca3af"/>
+          </marker>
+        </defs>
+        {/* 화살표 */}
+        {displayTasks.map(task=>{
+          const toP=nodePos[String(task.id)];if(!toP)return null;
+          return(task.dependencies||[]).map(String).map(depId=>{
+            const frP=nodePos[depId];if(!frP)return null;
+            const x1=frP.x+NW,y1=frP.y+NH/2,x2=toP.x,y2=toP.y+NH/2,cx=(x1+x2)/2;
+            return<path key={`${depId}-${task.id}`} d={`M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`} fill="none" stroke="#9ca3af" strokeWidth="1.5" markerEnd="url(#arr)"/>;
+          });
+        })}
+        {/* 이전 스프린트 인디케이터 */}
+        {crossDeps.map(task=>{
+          const toP=nodePos[String(task.id)];if(!toP)return null;
+          return<g key={`cs-${task.id}`}>
+            <line x1={toP.x-70} y1={toP.y+NH/2} x2={toP.x-2} y2={toP.y+NH/2} stroke="#d1d5db" strokeWidth="1" strokeDasharray="4 2" markerEnd="url(#arr)"/>
+            <text x={toP.x-74} y={toP.y+NH/2-4} textAnchor="end" fontSize="9" fill="#9ca3af">◀ 이전 스프린트</text>
+          </g>;
+        })}
+        {/* 노드 */}
+        {displayTasks.map(task=>{
+          const p=nodePos[String(task.id)];if(!p)return null;
+          const isAsgn=task.assignee&&task.assignee!=="미배정";
+          const col=isAsgn?task._sc:GRAY;
+          const isSel=String(task.id)===selTask;
+          const lines=wrapTitle(task.title);
+          const ty1=lines.length>1?p.y+20:p.y+28;
+          return<g key={task.id} onClick={()=>setSelTask(isSel?null:String(task.id))} style={{cursor:"pointer"}}>
+            <rect x={p.x} y={p.y} width={NW} height={NH} rx={6} fill={col.bg} stroke={col.border} strokeWidth={isSel?2.5:1.5}/>
+            {isSel&&<rect x={p.x-1} y={p.y-1} width={NW+2} height={NH+2} rx={7} fill="none" stroke={col.border} strokeWidth="1" opacity="0.3"/>}
+            <text x={p.x+NW/2} y={ty1} textAnchor="middle" fontSize="11" fontWeight="500" fill="#111">{lines[0]}</text>
+            {lines[1]&&<text x={p.x+NW/2} y={p.y+36} textAnchor="middle" fontSize="11" fill="#111">{lines[1]}</text>}
+            <text x={p.x+NW/2} y={p.y+NH-10} textAnchor="middle" fontSize="9" fill={col.border}>{task._sn}</text>
+          </g>;
+        })}
+      </svg>
+    </div>
+    {/* 상세 패널 */}
+    {selTaskData&&<div style={{marginTop:12,border:"1px solid var(--color-border-secondary)",borderRadius:10,overflow:"hidden",fontSize:13}}>
+      <div style={{padding:"10px 14px",background:"var(--color-background-secondary)",borderBottom:"1px solid var(--color-border-tertiary)",fontWeight:500,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <span>📋 {selTaskData.title}</span>
+        <button onClick={()=>setSelTask(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"var(--color-text-secondary)",lineHeight:1}}>✕</button>
+      </div>
+      {selTaskData.description&&<div style={{padding:"10px 14px",borderBottom:"1px solid var(--color-border-tertiary)",fontSize:12,lineHeight:1.6}}>
+        <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:4}}>설명</div>
+        {selTaskData.description}
+      </div>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr"}}>
+        <div style={{padding:"10px 14px",borderRight:"1px solid var(--color-border-tertiary)",borderBottom:"1px solid var(--color-border-tertiary)"}}>
+          <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:6}}>Input</div>
+          {(selTaskData.input??[]).length?(selTaskData.input??[]).map((x,i)=><div key={i} style={{fontSize:12,marginBottom:3}}>• {x}</div>):<div style={{fontSize:12,color:"#9ca3af"}}>-</div>}
+        </div>
+        <div style={{padding:"10px 14px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
+          <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",marginBottom:6}}>Output</div>
+          {(selTaskData.output??[]).length?(selTaskData.output??[]).map((x,i)=><div key={i} style={{fontSize:12,marginBottom:3}}>• {x}</div>):<div style={{fontSize:12,color:"#9ca3af"}}>-</div>}
+        </div>
+      </div>
+      <div style={{padding:"8px 14px",background:"var(--color-background-secondary)",fontSize:11,color:"var(--color-text-secondary)",display:"flex",gap:16,flexWrap:"wrap"}}>
+        <span>담당자: {selTaskData.assignee||"미배정"}</span>
+        <span>우선순위: {selTaskData.priority||"보통"}</span>
+        <span>SP: {selTaskData.pts||0}</span>
+        <span>상태: {selTaskData.status||"백로그"}</span>
+      </div>
+    </div>}
+  </div>;
+}
+
 function PMPanel({cl,upd}){
   const [view,setView]=useState("board");
   const [planL,setPlanL]=useState(false);
@@ -635,9 +777,10 @@ function PMPanel({cl,upd}){
       const r=await claude(
         `당신은 Agile PM 전문가입니다. 소상공인 AI 솔루션 개발 프로젝트 플랜을 생성하세요.
 반드시 순수 JSON만 출력 (마크다운 백틱 없이, 설명 없이, JSON만):
-{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","daysFromStart":0,"durationDays":14,"tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
+{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD","input":["필요 자료1","필요 자료2"],"output":["산출물1","산출물2"],"description":"태스크 수행 방법 한 문장 설명"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
 규칙: 스프린트 ${numSprints}개, 태스크 스프린트당 4~6개, pts 1~5
 의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
+각 태스크에 반드시 포함: input(시작에 필요한 자료·선행결과·접근권한, 1~3개), output(완료시 산출물, 1~3개), description(수행방법 한 문장)
 
 스프린트 일정 (반드시 준수):
 ${sprintScheduleStr}
@@ -655,16 +798,61 @@ ${sprintScheduleStr}
 Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
 솔루션:${solDesc||"AI 솔루션"} 도구:${tools} 예상기간:${effort}
 예산:${cl.budget||"미정"}`,
-        3000
+        6000
       );
       let parsed=null;
-      // 1차: 전체 텍스트 파싱
-      try{ parsed=JSON.parse(r.replace(/```json|```/g,"").trim()); }catch{}
-      // 2차: 중괄호 추출 후 파싱
-      if(!parsed?.sprints){
-        const m=r.match(/\{[\s\S]*\}/);
-        if(m){ try{ parsed=JSON.parse(m[0]); }catch{} }
-      }
+      // JSON 자동 복구: 빠진 쉼표 삽입 + 후행 쉼표 제거
+      const repairJSON=str=>{
+        let out='',i=0;const n=str.length;
+        const needsComma=ch=>ch==='"'||ch==='{'||ch==='['||ch==='-'||/[0-9tf]/.test(ch);
+        const addCommaIfNeeded=()=>{
+          const rest=str.slice(i);const m=rest.match(/^(\s*)/);const ws=m?m[1]:'';
+          const after=str[i+ws.length];
+          if(after&&needsComma(after)&&!ws.includes(',')&&!ws.includes(':')){out+=',';}
+        };
+        while(i<n){
+          if(str[i]==='"'){
+            let j=i+1;
+            while(j<n){if(str[j]==='\\'&&j+1<n){j+=2;continue;}if(str[j]==='"'){j++;break;}j++;}
+            out+=str.slice(i,j);i=j;
+            addCommaIfNeeded();continue;
+          }
+          if(str[i]==='}'||str[i]===']'){out+=str[i++];addCommaIfNeeded();continue;}
+          // number / bool / null
+          if(str[i]==='-'||/[0-9]/.test(str[i])){
+            let j=i;while(j<n&&/[0-9.\-+eE]/.test(str[j]))j++;
+            out+=str.slice(i,j);i=j;addCommaIfNeeded();continue;
+          }
+          if(str.startsWith('true',i)||str.startsWith('false',i)||str.startsWith('null',i)){
+            const w=str.startsWith('true',i)?4:str.startsWith('false',i)?5:4;
+            out+=str.slice(i,i+w);i+=w;addCommaIfNeeded();continue;
+          }
+          out+=str[i++];
+        }
+        return out.replace(/,(\s*[}\]])/g,'$1');
+      };
+      // 균형 괄호 기반 JSON 추출
+      const extractJSON=txt=>{
+        const s=txt.indexOf('{');if(s===-1)return null;
+        let depth=0,inStr=false,esc=false;
+        for(let i=s;i<txt.length;i++){
+          const c=txt[i];
+          if(esc){esc=false;continue;}
+          if(c==='\\'&&inStr){esc=true;continue;}
+          if(c==='"'){inStr=!inStr;continue;}
+          if(inStr)continue;
+          if(c==='{')depth++;
+          else if(c==='}'){depth--;if(depth===0){try{return JSON.parse(txt.slice(s,i+1));}catch(e){try{return JSON.parse(repairJSON(txt.slice(s,i+1)));}catch{return null;}}}}
+        }
+        return null;
+      };
+      // 1차: 백틱 제거 후 전체 파싱
+      const cleaned=r.replace(/```json\n?|```\n?/g,"").trim();
+      try{parsed=JSON.parse(cleaned);}catch{}
+      // 2차: 복구 후 파싱
+      if(!parsed?.sprints){try{parsed=JSON.parse(repairJSON(cleaned));}catch{}}
+      // 3차: 균형 괄호 추출
+      if(!parsed?.sprints)parsed=extractJSON(cleaned)||extractJSON(r);
       if(parsed?.sprints){
         const sprints=parsed.sprints.map((sp,i)=>{
           // 스프린트 바 날짜는 preSprintSchedules 기준으로 고정 (AI daysFromStart 무시)
@@ -683,16 +871,21 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
               title:t.title||"",assignee:t.assignee||"컨설턴트(본인)",
               priority:t.priority||"보통",status:t.status||"백로그",pts:t.pts||3,
               dependencies:(t.dependencies||[]).map(String),
-              startDate:sd,dueDate:dd,manualDates:false
+              startDate:sd,dueDate:dd,manualDates:false,
+              input:Array.isArray(t.input)?t.input:[],
+              output:Array.isArray(t.output)?t.output:[],
+              description:t.description||""
             };
           });
           return{id:Date.now()+Math.random(),num:i+1,name:sp.name||`Sprint ${i+1}`,goal:sp.goal||"",start:spStart,end:spEnd,tasks:clampedTasks};
         });
-        const resources=(parsed.resources||[]).map((r,i)=>({id:Date.now()+i,name:r.name||"",role:r.role||"컨설턴트(본인)",avail:100}));
+        const aiResources=(parsed.resources||[]).map((r,i)=>({id:Date.now()+i,name:r.name||"",role:r.role||"컨설턴트(본인)",avail:100}));
+        const existingResources=cl.pm?.resources||[];
+        const resources=existingResources.length?existingResources:(aiResources.length?aiResources:[{id:1,name:"컨설턴트(본인)",role:"컨설턴트(본인)",avail:100}]);
         upd({pm:{
           ...cl.pm,
           sprints,
-          resources:resources.length?resources:(cl.pm?.resources||[{id:1,name:"컨설턴트(본인)",role:"컨설턴트(본인)",avail:100}]),
+          resources,
           velocity:parsed.velocity||20,
           pjName:parsed.projectName||cl.name+" AI 솔루션"
         }});
@@ -845,12 +1038,13 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     </Panel>
     {/* 뷰 탭 */}
     <div style={{display:"flex",border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
-      {[["board","📋 스프린트 보드"],["gantt","📅 간트차트"],["burndown","📉 번다운"],["resources","👥 리소스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"8px 4px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400}}>{l}</button>)}
+      {[["board","📋 보드"],["gantt","📅 간트"],["burndown","📉 번다운"],["resources","👥 리소스"],["process","🔀 프로세스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,minWidth:0,padding:"8px 2px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l}</button>)}
     </div>
     {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="gantt"&&<PMGantt pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="burndown"&&<Burndown/>}
     {view==="resources"&&<PMResources pm={pm} updPM={updPM}/>}
+    {view==="process"&&<PMProcess pm={pm}/>}
   </div>;
 }
 
