@@ -9,6 +9,116 @@ const PAIN_TYPES=["반복업무 자동화","정보 부족/분석","고객 응대
 const BUDGETS=["무료~10만원","10~50만원","50~200만원","200만원+"];
 const TIMELINES=["1주 이내","2~4주","1~3개월","3개월+"];
 const HYPO={"카페/베이커리":["재고 수기 관리","발주 타이밍 놓침","SNS 포스팅 시간 없음","매출 분석 안됨"],"식당/요식업":["예약 전화 놓침","메뉴 원가 파악 안됨","직원 스케줄 복잡","단골 관리 없음"],"소매/유통":["재고 파악 어려움","가격 비교 귀찮음","매출 데이터 없음","반품 처리 번거로움"],"서비스업(미용/학원)":["예약 관리 복잡","재방문율 낮음","홍보 방법 모름","출석/이력 관리 번거로움"],"제조/가공업":["납기 관리 어려움","원자재 재고 파악 안됨","견적서 작성 오래 걸림","품질 불량 추적 안됨"],"기타":["반복 업무 많음","데이터 정리 안됨","고객 응대 부담","비용 파악 안됨"]};
+const CHATBOT_MANUAL={
+  home:`
+    [홈 화면]
+    - 전체 고객 목록을 카드 형태로 확인할 수 있습니다.
+    - 우측 상단 "+ 새 고객" 버튼으로 신규 고객을 등록합니다.
+    - 고객 카드 클릭 시 해당 고객의 컨설팅 화면으로 이동합니다.
+    - 고객 카드의 ✕ 아이콘으로 고객을 삭제할 수 있습니다.
+    - 진행 단계(Discovery·Diagnosis·Build)별로 색상이 구분됩니다.
+  `,
+  "0-1":`
+    [Phase 0 Step 1 — 사전 준비]
+    - AI 사전조사: 업체명·업종 입력 후 "AI 자동 사전 조사 실행" 버튼 클릭 시 업종 특성·트렌드·예상 Pain Point를 자동 생성합니다.
+    - 직접 수집 정보: 네이버 플레이스·SNS 등에서 수집한 정보를 자유롭게 메모합니다.
+    - 가설 Pain Point: 업종별 태그를 선택해 예상 Pain Point를 미리 설정합니다.
+    - 인터뷰 질문지: "인터뷰 질문지 자동 생성" 버튼 클릭 시 미팅용 질문지가 자동 작성되며 클립보드 복사가 가능합니다.
+    - 체크리스트를 모두 완료해야 다음 Step으로 이동할 수 있습니다.
+  `,
+  "0-2":`
+    [Phase 0 Step 2 — 아이스브레이킹]
+    - 고객과의 첫 미팅에서 아이스브레이킹 진행 후 체크리스트를 완료합니다.
+    - 특이사항이나 메모를 자유롭게 입력할 수 있습니다.
+  `,
+  "0-3":`
+    [Phase 0 Step 3 — 현황 인터뷰]
+    - 인터뷰 Q&A 노트: Q1~Q3 항목에 고객 답변을 직접 입력하거나 STT로 자동 입력합니다.
+    - STT 사용법: 인터뷰 녹음 mp3 파일을 업로드하면 Whisper AI가 텍스트로 변환하고, Claude AI가 고객 답변 핵심 내용만 추출하여 Q1~Q3에 자동 입력합니다.
+    - 자동 입력된 내용은 🤖 배지로 표시되며 직접 수정 가능합니다.
+    - 인터뷰 체크리스트를 완료해야 다음 Step으로 이동합니다.
+  `,
+  "0-4":`
+    [Phase 0 Step 4 — AI 분석]
+    - "Pain Point AI 분석" 버튼 클릭 시 인터뷰 내용을 바탕으로 Pain Point를 자동 도출합니다.
+    - 도출된 Pain Point는 제목·유형·영향도·해결 방향으로 구성됩니다.
+    - 추가·삭제·수정이 가능합니다.
+  `,
+  "0-5":`
+    [Phase 0 Step 5 — 확정 & 전달]
+    - 최종 Pain Point를 고객에게 전달하고 확정합니다.
+    - 체크리스트 완료 후 Phase 1 Diagnosis로 이동합니다.
+  `,
+  "1-1":`
+    [Phase 1 Step 1 — 문제 재확인]
+    - Phase 0에서 확정된 Pain Point를 재확인합니다.
+    - 추가 Pain Point가 있으면 입력합니다.
+  `,
+  "1-2":`
+    [Phase 1 Step 2 — 솔루션 설계]
+    - "AI 솔루션 3개 자동 생성" 버튼 클릭 시 Pain Point 기반으로 AI 솔루션을 자동 설계합니다.
+    - 생성된 솔루션 중 복수 선택 후 "통합 합성" 버튼으로 Merged Solution을 만들 수 있습니다.
+    - 예산·기간·도구·공수는 직접 입력합니다.
+  `,
+  "1-3":`
+    [Phase 1 Step 3 — 실현 가능성]
+    - 솔루션 실현 가능성 체크리스트를 작성합니다.
+    - 리스크 사항을 메모합니다.
+  `,
+  "1-4":`
+    [Phase 1 Step 4 — 제안서 작성]
+    - "AI 권장사항 생성" 버튼으로 솔루션별 도입 효과·우선순위를 자동 작성합니다.
+    - "제안서 초안 AI 생성" 버튼으로 A4 2페이지 분량의 제안서 초안을 자동 작성합니다.
+    - 제안서는 직접 편집 가능하며 클립보드 복사를 지원합니다.
+  `,
+  "1-5":`
+    [Phase 1 Step 5 — 발표 & 컨펌]
+    - 고객 발표 체크리스트를 완료합니다.
+    - 이의 처리 내용과 계약 관련 메모를 입력합니다.
+  `,
+  "2-1":`
+    [Phase 2 Step 1 — 개발 착수 Agile PM]
+    - "AI 프로젝트 플랜 자동생성" 버튼으로 스프린트·태스크 계획을 자동 생성합니다.
+    - 스프린트 보드: 태스크를 백로그·진행중·완료·보류로 관리합니다.
+    - 간트차트: 스프린트 바 클릭 시 태스크별 일정을 펼쳐볼 수 있습니다. 태스크 바 클릭 시 담당자를 배정할 수 있습니다.
+    - 리소스 관리: 담당자별 부하율을 확인합니다.
+    - 시스템 프로세스: 전체 및 스프린트별 플로우차트를 확인합니다. 노드 클릭 시 Input·Output을 확인할 수 있습니다.
+  `,
+  "2-2":`
+    [Phase 2 Step 2 — MVP 구현]
+    - MVP 완료 체크리스트를 작성합니다.
+    - "AI 개발 조언" 버튼 클릭 시 솔루션 구현에 필요한 기술적 조언을 제공합니다.
+      (모듈별 구현 순서·리스크·MVP 범위·사전 준비사항 포함)
+  `,
+  "2-3":`
+    [Phase 2 Step 3 — 파일럿 테스트]
+    - 파일럿 체크리스트를 완료합니다.
+    - 고객 피드백 내용과 테스트 결과를 메모합니다.
+    - AI 사용 설명서를 자동 생성할 수 있습니다.
+  `,
+  "2-4":`
+    [Phase 2 Step 4 — 이관 & 완료]
+    - 이관 체크리스트를 완료합니다.
+    - AI 케이스 스터디를 자동 작성할 수 있습니다.
+    - 핸드오버 체크리스트를 모두 완료하면 프로젝트 완료 확정이 가능합니다.
+  `,
+  default:`
+    [시스템 공통]
+    - 각 Step의 체크리스트를 완료해야 다음 단계로 이동할 수 있습니다.
+    - 입력 내용은 자동으로 저장됩니다.
+    - AI 버튼 클릭 시 현재 입력된 정보를 바탕으로 AI가 자동 작성합니다.
+    - 상단 Phase 탭을 클릭하면 완료된 Phase로 이동할 수 있습니다.
+  `,
+};
+const FAQ_BUTTONS={
+  home:["새 고객 등록 방법","고객 삭제 방법","단계별 색상 의미"],
+  "0-1":["AI 사전조사 사용법","인터뷰 질문지 생성","가설 Pain Point란?"],
+  "0-3":["STT 사용법","Q1~Q3 자동입력 방법","🤖 배지 의미"],
+  "1-2":["솔루션 통합 합성이란?","AI 솔루션 생성 방법","예산 입력 방법"],
+  "2-1":["프로젝트 플랜 자동생성","간트차트 사용법","담당자 배정 방법"],
+  "2-2":["AI 개발 조언이란?","MVP 체크리스트 작성법","개발 조언 활용법"],
+  default:["현재 화면 설명","다음 단계로 이동 방법","저장은 어떻게 하나요?"],
+};
 const SPRINT_STATUS=["백로그","진행중","완료","보류"];
 const ROLES=["컨설턴트(본인)","고객(사장님)","외주 개발자","기타"];
 const PRIORITY=["긴급","높음","보통","낮음"];
@@ -1087,6 +1197,81 @@ const initClient=()=>({
 });
 
 // ── 메인 앱 ──
+function ChatbotWidget({contextKey}){
+  const [open,setOpen]=useState(false);
+  const [messages,setMessages]=useState([]);
+  const [input,setInput]=useState("");
+  const [loading,setLoading]=useState(false);
+  const endRef=useRef(null);
+
+  useEffect(()=>{setMessages([]);},[contextKey]);
+  useEffect(()=>{if(endRef.current)endRef.current.scrollIntoView({behavior:"smooth"});},[messages,loading]);
+
+  const send=async(text)=>{
+    const msg=(text||input).trim();
+    if(!msg)return;
+    setInput("");
+    setMessages(prev=>[...prev,{role:"user",text:msg}]);
+    setLoading(true);
+    const manualContext=CHATBOT_MANUAL[contextKey]||CHATBOT_MANUAL.default||"";
+    const recent=messages.slice(-6).map(m=>({role:m.role,content:m.text}));
+    const sys=`당신은 AI 컨설팅 시스템의 사용 도우미입니다.
+아래 [시스템 매뉴얼]에 있는 내용만을 바탕으로 답변하세요.
+매뉴얼에 없는 내용은 "이 시스템 사용법 관련 질문만 답변드릴 수 있어요." 라고 안내하세요.
+답변은 간결하고 친절하게, 3~5문장 이내로 작성하세요.
+한국어로 답변하세요.
+
+[현재 사용자 위치]
+${contextKey==="home"?"홈 화면":`Phase ${parseInt(contextKey)+1} Step ${contextKey.split("-")[1]}`}
+
+[시스템 매뉴얼]
+${manualContext}`;
+    try{
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}]})});
+      const d=await r.json();
+      const answer=d.content?.[0]?.text||"답변을 가져오지 못했습니다.";
+      setMessages(prev=>[...prev,{role:"assistant",text:answer}]);
+    }catch{
+      setMessages(prev=>[...prev,{role:"assistant",text:"오류가 발생했습니다. 다시 시도해주세요."}]);
+    }finally{setLoading(false);}
+  };
+
+  const faqs=FAQ_BUTTONS[contextKey]||FAQ_BUTTONS.default;
+
+  return <>
+    {open&&<div style={{position:"fixed",right:24,bottom:88,width:360,height:500,borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.15)",background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",zIndex:1000,fontFamily:"var(--font-sans)"}}>
+      {/* 헤더 */}
+      <div style={{padding:"12px 16px",borderBottom:"0.5px solid var(--color-border-tertiary)",display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:"12px 12px 0 0",background:C.blue,color:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,fontWeight:500,fontSize:14}}>
+          <span>🤖</span><span>AI 사용 도우미</span>
+        </div>
+        <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#fff",fontSize:18,lineHeight:1,padding:0}}>✕</button>
+      </div>
+      {/* 메시지 영역 */}
+      <div style={{flex:1,overflowY:"auto",padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{alignSelf:"flex-start",background:"#F3F4F6",color:"var(--color-text-primary)",borderRadius:"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6}}>
+          안녕하세요! 시스템 사용 관련 궁금한 점을 물어보세요. 😊
+        </div>
+        {messages.length===0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
+          {faqs.map((f,i)=><button key={i} onClick={()=>send(f)} style={{padding:"5px 10px",borderRadius:16,fontSize:12,background:C.blueBg,color:C.blue,border:`0.5px solid ${C.blueLt}`,cursor:"pointer",fontFamily:"var(--font-sans)"}}>{f}</button>)}
+        </div>}
+        {messages.map((m,i)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",background:m.role==="user"?C.blue:"#F3F4F6",color:m.role==="user"?"#fff":"var(--color-text-primary)",borderRadius:m.role==="user"?"8px 8px 0 8px":"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.text}</div>)}
+        {loading&&<div style={{alignSelf:"flex-start",background:"#F3F4F6",borderRadius:"8px 8px 8px 0",padding:"8px 14px",fontSize:18,color:"var(--color-text-secondary)",letterSpacing:2}}>···</div>}
+        <div ref={endRef}/>
+      </div>
+      {/* 입력창 */}
+      <div style={{padding:"10px 12px",borderTop:"0.5px solid var(--color-border-tertiary)",display:"flex",gap:8,alignItems:"center"}}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="질문을 입력하세요..." style={{flex:1,padding:"8px 12px",borderRadius:8,border:"0.5px solid var(--color-border-secondary)",fontSize:13,fontFamily:"var(--font-sans)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",outline:"none"}}/>
+        <button onClick={()=>send()} disabled={loading||!input.trim()} style={{width:36,height:36,borderRadius:8,background:C.blue,color:"#fff",border:"none",cursor:loading||!input.trim()?"not-allowed":"pointer",opacity:loading||!input.trim()?0.5:1,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>➤</button>
+      </div>
+    </div>}
+    {/* 플로팅 버튼 */}
+    <button onClick={()=>setOpen(o=>!o)} style={{position:"fixed",right:24,bottom:24,width:52,height:52,borderRadius:"50%",background:C.blue,color:"#fff",border:"none",cursor:"pointer",fontSize:22,zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(0,0,0,0.2)"}}>
+      {open?"✕":"💬"}
+    </button>
+  </>;
+}
+
 export default function App(){
   const [clients,setClients]=useState([]);
   const [activeId,setActiveId]=useState(null);
@@ -1230,6 +1415,7 @@ export default function App(){
         </div>
       </div>;
     })}
+    <ChatbotWidget contextKey="home"/>
   </div>;
 
   if(!active) return null;
@@ -1945,5 +2131,6 @@ ${selectedOpts.join("\n")||"없음"}
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="success" onClick={()=>setView("home")}>← 고객 목록으로</Btn><Btn v="blue" onClick={addClient}>+ 신규 고객 등록</Btn></div>
     </Panel>}
     {sttToast&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",color:"#fff",padding:"10px 20px",borderRadius:20,fontSize:13,zIndex:9999,pointerEvents:"none",whiteSpace:"nowrap"}}>{sttToast}</div>}
+    <ChatbotWidget contextKey={`${active.phase}-${active.step+1}`}/>
   </div>;
 }
