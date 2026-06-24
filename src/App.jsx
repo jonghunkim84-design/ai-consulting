@@ -1244,7 +1244,7 @@ function ChatbotWidget({contextKey}){
 한국어로 답변하세요.
 
 [현재 사용자 위치]
-${contextKey==="home"?"홈 화면":`Phase ${parseInt(contextKey)+1} Step ${contextKey.split("-")[1]}`}
+${contextKey==="home"?"홈 화면":`Phase ${parseInt(contextKey)} Step ${contextKey.split("-")[1]}`}
 
 [시스템 매뉴얼]
 ${manualContext}`;
@@ -1426,7 +1426,7 @@ export default function App(){
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
       {PHASES.map(p=><div key={p.id} style={{background:p.bg,border:`0.5px solid ${p.color}30`,borderRadius:12,padding:"12px 14px"}}>
-        <div style={{fontSize:12,fontWeight:500,color:p.color,marginBottom:4}}>Phase {p.id+1}</div>
+        <div style={{fontSize:12,fontWeight:500,color:p.color,marginBottom:4}}>Phase {p.id}</div>
         <div style={{fontSize:14,fontWeight:500,marginBottom:4}}>{p.label}</div>
         <div style={{fontSize:11,color:"var(--color-text-secondary)",lineHeight:1.5}}>{p.sub}</div>
       </div>)}
@@ -1486,7 +1486,7 @@ export default function App(){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:"1.25rem"}}>
       {PHASES.map(p=>{const ia=active.phase===p.id,id=active.phasesDone[p.id],pc2=pc(p.id),pb2=pb(p.id);
         return <div key={p.id} onClick={()=>{if(id||ia)upd({phase:p.id,step:0,status:p.key});}} style={{borderRadius:10,padding:"10px 12px",background:id||ia?pb2:"var(--color-background-secondary)",border:`${ia?"2px":"0.5px"} solid ${ia||id?pc2+"50":"var(--color-border-tertiary)"}`,opacity:!ia&&!id?0.5:1,cursor:id||ia?"pointer":"default"}}>
-          <div style={{fontSize:11,color:pc2,fontWeight:500}}>Phase {p.id+1}</div>
+          <div style={{fontSize:11,color:pc2,fontWeight:500}}>Phase {p.id}</div>
           <div style={{fontSize:13,fontWeight:500,marginTop:2}}>{p.label}</div>
           {id&&<div style={{fontSize:11,color:pc2,marginTop:2}}>✓ 완료</div>}
           {ia&&!id&&<div style={{fontSize:11,color:pc2,marginTop:2}}>{p.steps[active.step]}</div>}
