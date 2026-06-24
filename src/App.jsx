@@ -1196,6 +1196,28 @@ const initClient=()=>({
   pm:{sprints:[newSprint(1)],resources:[{id:1,name:"컨설턴트(본인)",role:"컨설턴트(본인)",avail:100}],velocity:20,pjName:""},
 });
 
+// ── 비밀번호 보호 화면 ──
+function PasswordScreen({passwordInput,setPasswordInput,passwordError,handleLogin}){
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--color-background-secondary)",fontFamily:"var(--font-sans)"}}>
+    <div style={{width:360,padding:"40px",borderRadius:16,boxShadow:"0 8px 32px rgba(0,0,0,0.12)",background:"var(--color-background-primary)",textAlign:"center"}}>
+      <div style={{fontSize:48,marginBottom:16}}>🤖</div>
+      <div style={{fontSize:20,fontWeight:600,marginBottom:8}}>AI 컨설팅 시스템</div>
+      <div style={{color:"var(--color-text-secondary)",marginBottom:32,fontSize:14}}>접근하려면 비밀번호를 입력하세요.</div>
+      <input
+        type="password"
+        value={passwordInput}
+        onChange={e=>{setPasswordInput(e.target.value);}}
+        onKeyDown={e=>{if(e.key==="Enter")handleLogin();}}
+        placeholder="비밀번호"
+        autoFocus
+        style={{width:"100%",padding:"12px 16px",borderRadius:8,border:`1.5px solid ${passwordError?"#EF4444":"#C5C5C5"}`,marginBottom:passwordError?8:16,fontSize:15,boxSizing:"border-box",fontFamily:"var(--font-sans)",outline:"none",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}}
+      />
+      {passwordError&&<div style={{color:"#EF4444",fontSize:13,marginBottom:14}}>❌ 비밀번호가 올바르지 않습니다.</div>}
+      <button onClick={handleLogin} style={{width:"100%",padding:"12px",borderRadius:8,background:C.blue,color:"#fff",fontWeight:600,fontSize:15,border:"none",cursor:"pointer",fontFamily:"var(--font-sans)"}}>입장하기</button>
+    </div>
+  </div>;
+}
+
 // ── 메인 앱 ──
 function ChatbotWidget({contextKey}){
   const [open,setOpen]=useState(false);
@@ -1273,6 +1295,9 @@ ${manualContext}`;
 }
 
 export default function App(){
+  const [isAuthenticated,setIsAuthenticated]=useState(()=>sessionStorage.getItem('ai_consulting_auth')==='true');
+  const [passwordInput,setPasswordInput]=useState('');
+  const [passwordError,setPasswordError]=useState(false);
   const [clients,setClients]=useState([]);
   const [activeId,setActiveId]=useState(null);
   const [view,setView]=useState("home");
@@ -1281,6 +1306,22 @@ export default function App(){
   const [sttToast,setSttToast]=useState("");
   const [dbLoading,setDbLoading]=useState(true);
   const fileRef=useRef();
+
+  const handleLogin=()=>{
+    if(passwordInput===import.meta.env.VITE_APP_PASSWORD){
+      sessionStorage.setItem('ai_consulting_auth','true');
+      setIsAuthenticated(true);
+      setPasswordError(false);
+    }else{
+      setPasswordError(true);
+      setPasswordInput('');
+    }
+  };
+  const handleLogout=()=>{
+    sessionStorage.removeItem('ai_consulting_auth');
+    setIsAuthenticated(false);
+    setPasswordInput('');
+  };
 
   // ── Supabase 연동 ──
   useEffect(()=>{
@@ -1362,6 +1403,9 @@ export default function App(){
   const effectiveEffort=(active?.buildEffort)||chosenSol?.effort||"";
   const effectiveCost=(active?.buildCost)||chosenSol?.cost||"";
 
+  // 비밀번호 화면
+  if(!isAuthenticated) return <PasswordScreen passwordInput={passwordInput} setPasswordInput={setPasswordInput} passwordError={passwordError} handleLogin={handleLogin}/>;
+
   // 로딩 화면
   if(dbLoading) return <div style={{maxWidth:760,margin:"0 auto",padding:"3rem 0",textAlign:"center",color:"var(--color-text-secondary)",fontFamily:"var(--font-sans)"}}><div style={{fontSize:32,marginBottom:12}}>⟳</div><div style={{fontSize:14}}>데이터 불러오는 중...</div></div>;
 
@@ -1373,7 +1417,10 @@ export default function App(){
         <div style={{fontSize:18,fontWeight:500}}>AI 컨설팅 시스템 v3</div>
         <div style={{fontSize:13,color:"var(--color-text-secondary)",marginTop:2}}>Discovery · Diagnosis · Build & Handover 통합 관리</div>
       </div>
-      <Btn v="blue" onClick={addClient}>+ 신규 고객 등록</Btn>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <Btn v="blue" onClick={addClient}>+ 신규 고객 등록</Btn>
+        <Btn v="ghost" sm onClick={handleLogout}>🔒 로그아웃</Btn>
+      </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
       {PHASES.map(p=><div key={p.id} style={{background:p.bg,border:`0.5px solid ${p.color}30`,borderRadius:12,padding:"12px 14px"}}>
@@ -1431,6 +1478,7 @@ export default function App(){
       <span style={{color:"var(--color-text-secondary)"}}>·</span>
       <span style={{fontSize:13,fontWeight:500}}>{active.name||"신규 고객"}</span>
       <span style={{marginLeft:"auto",fontSize:12,color:col,fontWeight:500}}>{prg2}% 완료</span>
+      <Btn v="ghost" sm onClick={handleLogout}>🔒 로그아웃</Btn>
     </div>
     {/* Phase 표시 */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:"1.25rem"}}>
