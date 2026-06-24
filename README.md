@@ -63,6 +63,15 @@ VITE_SUPABASE_ANON_KEY=    # Supabase anon key
 | `phases_done` | bool[] | 각 페이즈 완료 여부 [P0, P1, P2] |
 | `data` | jsonb | 전체 클라이언트 객체 (전 필드 포함) |
 | `created_at` | timestamptz | 생성 시각 |
+| `updated_at` | timestamptz | 마지막 수정 시각 (트리거로 자동 갱신) |
+
+### 스키마 적용 방법
+
+신규 설치 시 `supabase/schema.sql` 파일을 사용하여 테이블을 생성할 수 있습니다.
+
+1. Supabase 대시보드 → SQL Editor 접속
+2. `supabase/schema.sql` 파일 내용 전체 복사 후 붙여넣기
+3. [Run] 버튼 클릭 → 완료 메시지 확인
 
 ---
 
