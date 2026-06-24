@@ -9,6 +9,31 @@ const PAIN_TYPES=["반복업무 자동화","정보 부족/분석","고객 응대
 const BUDGETS=["무료~10만원","10~50만원","50~200만원","200만원+"];
 const TIMELINES=["1주 이내","2~4주","1~3개월","3개월+"];
 const HYPO={"카페/베이커리":["재고 수기 관리","발주 타이밍 놓침","SNS 포스팅 시간 없음","매출 분석 안됨"],"식당/요식업":["예약 전화 놓침","메뉴 원가 파악 안됨","직원 스케줄 복잡","단골 관리 없음"],"소매/유통":["재고 파악 어려움","가격 비교 귀찮음","매출 데이터 없음","반품 처리 번거로움"],"서비스업(미용/학원)":["예약 관리 복잡","재방문율 낮음","홍보 방법 모름","출석/이력 관리 번거로움"],"제조/가공업":["납기 관리 어려움","원자재 재고 파악 안됨","견적서 작성 오래 걸림","품질 불량 추적 안됨"],"기타":["반복 업무 많음","데이터 정리 안됨","고객 응대 부담","비용 파악 안됨"]};
+// ── UI 텍스트 상수 (CHATBOT_MANUAL과 렌더 코드가 동일 소스 참조) ──
+const CL_D1=["고객 기본 정보 입력 완료","AI 자동 조사 실행 완료","직접 수집 정보 입력 완료","가설 Pain Point 2개 이상 선택","인터뷰 질문지 생성 완료"];
+const CL_D2=["인사 및 자기소개 완료","분위기 완화 완료","AI 친숙도 확인","기대 수준 정렬","편한 분위기 형성"];
+const CL_D5=["요약 문서 고객 전달","고객 컨펌 수령","다음 미팅 일정 확정"];
+const CL_DG3=["스마트폰 운영 가능","기존 도구 연동 검토","예산 범위 내","고객 혼자 운영 가능","2주 내 MVP 가능"];
+const CL_DG4=[["제안 솔루션(TO-BE) 내용 확인","시스템 개요, 기능, 기술스택 포함 여부"],["구축 범위 In/Out-Scope 명확히 기재","고객이 기대하는 것과 차이 없는지"],["추진 일정(WBS) 현실적인지 검토","고객 일정과 맞는지"],["사업비 항목별 내역 정확한지 확인","유지보수 비용 포함 여부"],["기대 효과 수치 근거 있는지 확인","ROI 계산 포함 여부"]];
+const CL_DG5=["제안서 전달 완료","솔루션 방향 합의","일정 및 비용 합의","착수 조건 확정"];
+const CL_DG5_OBJ=["비용이 부담돼요","어렵게 느껴져요","나중에 생각해볼게요","직접 못 쓸 것 같아요"];
+const CL_B3=["MVP 사용법 안내 완료","1주차 파일럿 + 중간 피드백","버그/불편 수정 완료","2주차 파일럿 + 최종 피드백","고객 만족도 확인"];
+const CL_B4=[["최종 사용 설명서 전달","1페이지+스크린샷"],["사용법 영상 1개 전달","3분 이내"],["계정 정리 문서 전달","공유 노션"],["고객 혼자 1회 실습","옆에서 보조"],["30일 A/S 채널 안내","카카오 오픈채팅"]];
+const BTN_D1_NEXT="준비 완료 → 아이스브레이킹 →";
+const BTN_D3_NEXT="완료 → AI 분석 →";
+const BTN_D5_NEXT="✓ Discovery 완료 → Diagnosis →";
+const BTN_DG1_BACK="← Discovery로";
+const BTN_DG2_NEXT="제안서 초안 완료 → 실현 가능성 평가 →";
+const BTN_DG3_NEXT="평가 완료 → 제안서 최종 확인 →";
+const BTN_DG3_REGEN="🔄 선택한 권고 사항 반영 → 제안서 재생성";
+const BTN_DG4_NEXT="제안서 완료 → 발표 & 컨펌 →";
+const BTN_DG5_NEXT="✓ Diagnosis 완료 → Build →";
+const BTN_B1_NEXT="착수 완료 → MVP 구현 →";
+const BTN_B1_BACK="← Diagnosis로";
+const BTN_B2_NEXT="MVP 완료 → 파일럿 →";
+const BTN_B3_NEXT="파일럿 완료 → 이관 →";
+const BTN_B4_COMPLETE="🎉 프로젝트 완료 확정";
+
 const CHATBOT_MANUAL={
   home:`
 [홈 화면]
@@ -27,14 +52,14 @@ const CHATBOT_MANUAL={
 - 인터뷰 질문지 생성: [✨ 인터뷰 질문지 자동 생성] 버튼 클릭 → 맞춤형 질문지 자동 작성
 - 질문지 복사: [📋 질문지 복사] 버튼 클릭 → 클립보드 복사
 - 질문지 재생성: [🔄 재생성] 버튼 클릭
-- 사전 준비 체크리스트: "고객 기본 정보 입력 완료 / AI 자동 조사 실행 완료 / 직접 수집 정보 입력 완료 / 가설 Pain Point 2개 이상 선택 / 인터뷰 질문지 생성 완료" 각 항목 클릭으로 완료 처리
-- 다음 Step 이동: [준비 완료 → 아이스브레이킹 →] 버튼 클릭
+- 사전 준비 체크리스트: "${CL_D1.join(" / ")}" 각 항목 클릭으로 완료 처리
+- 다음 Step 이동: [${BTN_D1_NEXT}] 버튼 클릭
   `,
   "0-2":`
 [Phase 0 Step 2 — 아이스브레이킹]
 - AI 친숙도 선택: 화면 내 AI 친숙도 태그 클릭으로 선택
 - 특이사항 메모 입력: "특이사항..." 텍스트 영역에 자유 입력 → 자동 저장
-- 체크리스트: "인사 및 자기소개 완료 / 분위기 완화 완료 / AI 친숙도 확인 / 기대 수준 정렬 / 편한 분위기 형성" 각 항목 클릭으로 완료/취소
+- 체크리스트: "${CL_D2.join(" / ")}" 각 항목 클릭으로 완료/취소
 - 다음 Step 이동: [완료 →] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
@@ -44,7 +69,7 @@ const CHATBOT_MANUAL={
 - 녹음 파일 업로드(STT): "녹음 파일 업로드" 패널의 점선 업로드 영역 클릭 → MP3/M4A/WAV 파일 선택 → Whisper가 텍스트 변환 후 Q1~Q3 자동 입력
 - 자동 입력 확인: AI가 자동 입력한 Q1~Q3 항목에 [🤖 자동입력] 배지 표시 → 텍스트 영역 클릭으로 직접 수정 가능
 - STT 결과 복사: 변환 완료 후 우측 [📋 복사] 버튼 클릭
-- 다음 Step 이동: [완료 → AI 분석 →] 버튼 클릭
+- 다음 Step 이동: [${BTN_D3_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "0-4":`
@@ -58,8 +83,8 @@ const CHATBOT_MANUAL={
   "0-5":`
 [Phase 0 Step 5 — 확정 & 전달]
 - Pain Point 요약 문서 복사: [📋 복사] 버튼 클릭 → 클립보드 복사 (고객 전달용)
-- 완료 체크리스트: "요약 문서 고객 전달 / 고객 컨펌 수령 / 다음 미팅 일정 확정" 각 항목 클릭으로 완료 처리
-- Phase 1 이동: [✓ Discovery 완료 → Diagnosis →] 버튼 클릭
+- 완료 체크리스트: "${CL_D5.join(" / ")}" 각 항목 클릭으로 완료 처리
+- Phase 1 이동: [${BTN_D5_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "1-1":`
@@ -69,7 +94,7 @@ const CHATBOT_MANUAL={
 - 예산·의사결정 메모 입력: "예산·의사결정 메모" 텍스트 영역에 예산 범위·의사결정자 메모 입력
 - AI 추가 확인 포인트 생성: [🤖 AI 추가 확인 포인트] 버튼 클릭 → Discovery 결과 기반 추가 확인사항 자동 생성
 - 다음 Step 이동: [완료 →] 버튼 클릭
-- 이전 Step 이동: [← Discovery로] 버튼 클릭
+- 이전 Step 이동: [${BTN_DG1_BACK}] 버튼 클릭
   `,
   "1-2":`
 [Phase 1 Step 2 — 솔루션 설계]
@@ -81,18 +106,18 @@ const CHATBOT_MANUAL={
 - 제안서 초안 자동 생성: 솔루션 선택 후 [✨ 제안서 초안 자동 생성 (6개 항목)] 버튼 클릭 → 6개 항목 제안서 자동 작성
 - 제안서 복사: [📋 복사] 버튼 클릭 → 클립보드 복사
 - 제안서 재생성: [🔄 재생성] 버튼 클릭
-- 다음 Step 이동: [제안서 초안 완료 → 실현 가능성 평가 →] 버튼 클릭 (솔루션 미선택 또는 제안서 미생성 시 비활성)
+- 다음 Step 이동: [${BTN_DG2_NEXT}] 버튼 클릭 (솔루션 미선택 또는 제안서 미생성 시 비활성)
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "1-3":`
 [Phase 1 Step 3 — 실현 가능성]
 - 제안서 초안 참조: 상단 "STEP 2 제안서 초안 요약" 패널에서 내용 확인
 - AI 실현 가능성 평가: 솔루션별 [🤖 AI 실현 가능성 평가] 버튼 클릭 → 강점·리스크·성공조건·권고사항 자동 생성
-- 실현 가능성 체크: 솔루션별 체크박스 5개 클릭 ("스마트폰 운영 가능 / 기존 도구 연동 검토 / 예산 범위 내 / 고객 혼자 운영 가능 / 2주 내 MVP 가능")
+- 실현 가능성 체크: 솔루션별 체크박스 5개 클릭 ("${CL_DG3.join(" / ")}")
 - 공통 리스크 메모 입력: "공통 리스크 메모" 텍스트 영역에 입력
 - 반영 권고 사항 선택: "반영할 권고 사항" 체크박스 클릭으로 제안서에 반영할 항목 선택
-- 제안서 재생성: [🔄 선택한 권고 사항 반영 → 제안서 재생성] 버튼 클릭 → STEP 2 제안서가 권고 사항 반영 버전으로 업데이트
-- 다음 Step 이동: [평가 완료 → 제안서 최종 확인 →] 버튼 클릭
+- 제안서 재생성: [${BTN_DG3_REGEN}] 버튼 클릭 → STEP 2 제안서가 권고 사항 반영 버전으로 업데이트
+- 다음 Step 이동: [${BTN_DG3_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "1-4":`
@@ -101,18 +126,18 @@ const CHATBOT_MANUAL={
 - 전체 복사: [📋 전체 복사] 버튼 클릭 → 클립보드 복사
 - STEP 2에서 재생성: [← STEP 2에서 재생성] 버튼 클릭 → STEP 2 화면으로 이동
 - STEP 3에서 권고 반영: [← STEP 3에서 권고 반영] 버튼 클릭 → STEP 3 화면으로 이동
-- 제안서 완료 체크리스트: "제안 솔루션(TO-BE) 내용 확인 / 구축 범위 In/Out-Scope 명확히 기재 / 추진 일정(WBS) 현실적인지 검토 / 사업비 항목별 내역 정확한지 확인 / 기대 효과 수치 근거 있는지 확인" 각 항목 클릭
-- 다음 Step 이동: [제안서 완료 → 발표 & 컨펌 →] 버튼 클릭
+- 제안서 완료 체크리스트: "${CL_DG4.map(([t])=>t).join(" / ")}" 각 항목 클릭
+- 다음 Step 이동: [${BTN_DG4_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "1-5":`
 [Phase 1 Step 5 — 발표 & 컨펌]
-- 반론 빠른 선택: [비용이 부담돼요] [어렵게 느껴져요] [나중에 생각해볼게요] [직접 못 쓸 것 같아요] 태그 클릭 → 반론 텍스트 자동 입력
+- 반론 빠른 선택: ${CL_DG5_OBJ.map(t=>`[${t}]`).join(" ")} 태그 클릭 → 반론 텍스트 자동 입력
 - 반론 직접 입력: "고객 반론 입력..." 텍스트 영역에 직접 입력
 - AI 대응 답변 생성: [🤖 AI 대응 답변] 버튼 클릭 → 반론 대응 스크립트 200자 이내 자동 생성
-- 컨펌 체크리스트: "제안서 전달 완료 / 솔루션 방향 합의 / 일정 및 비용 합의 / 착수 조건 확정" 각 항목 클릭으로 완료 처리
+- 컨펌 체크리스트: "${CL_DG5.join(" / ")}" 각 항목 클릭으로 완료 처리
 - 계약 메모 입력: "착수금, 일정, 특이사항..." 텍스트 영역에 입력
-- Phase 2 이동: [✓ Diagnosis 완료 → Build →] 버튼 클릭
+- Phase 2 이동: [${BTN_DG5_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "2-1":`
@@ -126,36 +151,40 @@ const CHATBOT_MANUAL={
 - 스프린트 보드 — 태스크 상세 편집: 태스크 제목 클릭 → 담당자·우선순위·상태·포인트 수정
 - 스프린트 보드 — 스프린트 접기/펼치기: 스프린트 헤더 우측 [▲/▼] 버튼 클릭
 - 스프린트 보드 — 스프린트 추가: [+ 스프린트 추가] 버튼 클릭
-- 간트차트 — 태스크 펼치기: 스프린트 바 클릭 → 태스크별 일정 바 표시
+- 간트차트 — 스프린트 펼치기: 스프린트 이름 왼쪽 [▶] 클릭 → 해당 스프린트 태스크 바 표시 (시작일·마감일 설정된 태스크만 표시)
+- 간트차트 — 담당자 배정: 태스크 바 클릭 → 담당자 배정 모달 팝업 → 담당자 선택 후 저장 (모달 내 부하율% 및 ⚠️ 과부하 표시)
+- 간트차트 — 담당자 추가: 모달 내 [+ 담당자 추가] → 기본 역할 목록 선택 또는 이름 직접 입력
+- 간트차트 — 오늘 위치: 빨간 점선으로 오늘 날짜 표시, 기한 초과 태스크는 빨간색 바로 표시
+- 간트차트 — 주의사항: 스프린트 보드에서 태스크에 시작일·마감일을 입력해야 태스크 바가 간트차트에 나타남
 - 리소스 관리 — 담당자 추가: [+ 담당자 추가] 버튼 클릭
-- 다음 Step 이동: [착수 완료 → MVP 구현 →] 버튼 클릭
-- 이전 Step 이동: [← Diagnosis로] 버튼 클릭
+- 다음 Step 이동: [${BTN_B1_NEXT}] 버튼 클릭
+- 이전 Step 이동: [${BTN_B1_BACK}] 버튼 클릭
   `,
   "2-2":`
 [Phase 2 Step 2 — MVP 구현]
 - 스프린트 보드 관리: Step 1과 동일한 Agile PM 보드 사용 (태스크 상태 변경·편집·추가)
 - 개발 메모 입력: "개발 메모 & 이슈" 패널의 "개발 메모, 이슈..." 텍스트 영역에 자유 입력
 - AI 개발 조언 생성: [🤖 AI 개발 조언] 버튼 클릭 → 모듈별 구현 순서·기술 리스크·MVP 범위·도구별 사전 준비사항 자동 생성
-- 다음 Step 이동: [MVP 완료 → 파일럿 →] 버튼 클릭
+- 다음 Step 이동: [${BTN_B2_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "2-3":`
 [Phase 2 Step 3 — 파일럿 테스트]
-- 파일럿 체크리스트: "MVP 사용법 안내 완료 / 1주차 파일럿 + 중간 피드백 / 버그/불편 수정 완료 / 2주차 파일럿 + 최종 피드백 / 고객 만족도 확인" 각 항목 클릭으로 완료 처리
+- 파일럿 체크리스트: "${CL_B3.join(" / ")}" 각 항목 클릭으로 완료 처리
 - 피드백 기록 입력: "고객 피드백 내용..." 텍스트 영역에 입력
 - AI 사용 설명서 생성: [✨ AI 사용 설명서 생성] 버튼 클릭 → 고객용 스마트폰 기준 설명서 자동 작성
 - 설명서 직접 편집: 생성된 설명서 텍스트 영역 클릭 후 직접 수정
 - 설명서 복사: [📋 복사] 버튼 클릭 → 클립보드 복사
-- 다음 Step 이동: [파일럿 완료 → 이관 →] 버튼 클릭
+- 다음 Step 이동: [${BTN_B3_NEXT}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   "2-4":`
 [Phase 2 Step 4 — 이관 & 완료]
-- 이관 체크리스트: "최종 사용 설명서 전달 / 사용법 영상 1개 전달 / 계정 정리 문서 전달 / 고객 혼자 1회 실습 / 30일 A/S 채널 안내" 각 항목 클릭으로 완료 처리
+- 이관 체크리스트: "${CL_B4.map(([t])=>t).join(" / ")}" 각 항목 클릭으로 완료 처리
 - AI 케이스 스터디 작성: [✨ AI 케이스 스터디 작성] 버튼 클릭 → 업종·Pain Point·솔루션·성과 기반 케이스 스터디 자동 생성
 - 케이스 스터디 직접 편집: 생성된 텍스트 영역 클릭 후 직접 수정
 - 케이스 스터디 복사: [📋 복사] 버튼 클릭 → 클립보드 복사
-- 프로젝트 완료 확정: 이관 체크리스트 5개 모두 완료 후 [🎉 프로젝트 완료 확정] 버튼 클릭
+- 프로젝트 완료 확정: 이관 체크리스트 5개 모두 완료 후 [${BTN_B4_COMPLETE}] 버튼 클릭
 - 이전 Step 이동: [← 이전] 버튼 클릭
   `,
   default:`
@@ -1587,9 +1616,9 @@ export default function App(){
         </Panel>
         <ResearchPanel cl={active} upd={upd}/>
         <Panel title="사전 준비 체크리스트" icon="✅">
-          {["고객 기본 정보 입력 완료","AI 자동 조사 실행 완료","직접 수집 정보 입력 완료","가설 Pain Point 2개 이상 선택","인터뷰 질문지 생성 완료"].map((t,i)=><ChkItem key={i} label={t} checked={!!active.prepCheck[i]} onChange={()=>updN("prepCheck",{[i]:!active.prepCheck[i]})}/>)}
+          {CL_D1.map((t,i)=><ChkItem key={i} label={t} checked={!!active.prepCheck[i]} onChange={()=>updN("prepCheck",{[i]:!active.prepCheck[i]})}/>)}
         </Panel>
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:"0.5rem"}}><Btn v="blue" onClick={()=>next(1)}>준비 완료 → 아이스브레이킹 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:"0.5rem"}}><Btn v="blue" onClick={()=>next(1)}>{BTN_D1_NEXT}</Btn></div>
       </>}
 
       {/* D2 아이스브레이킹 */}
@@ -1603,7 +1632,7 @@ export default function App(){
           <FL c="특이사항 메모"/><TA value={active.iceMemo} onChange={v=>upd({iceMemo:v})} placeholder="특이사항..." rows={3}/>
         </Panel>
         <Panel title="체크리스트" icon="✅">
-          {["인사 및 자기소개 완료","분위기 완화 완료","AI 친숙도 확인","기대 수준 정렬","편한 분위기 형성"].map((t,i)=><ChkItem key={i} label={t} checked={!!active.iceCheck[i]} onChange={()=>updN("iceCheck",{[i]:!active.iceCheck[i]})}/>)}
+          {CL_D2.map((t,i)=><ChkItem key={i} label={t} checked={!!active.iceCheck[i]} onChange={()=>updN("iceCheck",{[i]:!active.iceCheck[i]})}/>)}
         </Panel>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn><Btn v="blue" onClick={()=>next(2)}>완료 →</Btn></div>
       </>}
@@ -1689,7 +1718,7 @@ export default function App(){
             }}
           />
         </Panel>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="blue" onClick={()=>next(3)}>완료 → AI 분석 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="blue" onClick={()=>next(3)}>{BTN_D3_NEXT}</Btn></div>
       </>}
 
       {/* D4 AI 분석 */}
@@ -1729,9 +1758,9 @@ export default function App(){
           <Btn onClick={()=>copyT(validPPs.map((pt,i)=>`#${i+1} ${pt.title}\n영향: ${pt.impact}`).join("\n\n"),"sum")} style={{marginTop:10}}>{copied==="sum"?"✓ 복사됨":"📋 복사"}</Btn>
         </Panel>
         <Panel title="완료 체크리스트" icon="✅">
-          {["요약 문서 고객 전달","고객 컨펌 수령","다음 미팅 일정 확정"].map((t,i)=><ChkItem key={i} label={t} checked={!!active.finalCheck[i]} onChange={()=>updN("finalCheck",{[i]:!active.finalCheck[i]})}/>)}
+          {CL_D5.map((t,i)=><ChkItem key={i} label={t} checked={!!active.finalCheck[i]} onChange={()=>updN("finalCheck",{[i]:!active.finalCheck[i]})}/>)}
         </Panel>
-        <div style={{marginTop:14}}><Btn v="blue" onClick={()=>next(5)}>✓ Discovery 완료 → Diagnosis →</Btn></div>
+        <div style={{marginTop:14}}><Btn v="blue" onClick={()=>next(5)}>{BTN_D5_NEXT}</Btn></div>
         <div style={{marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:3})}>← 이전</Btn></div>
       </>}
     </>}
@@ -1749,7 +1778,7 @@ export default function App(){
           <Btn v="teal" onClick={()=>runAI("dg_rc","Discovery 결과 Diagnosis 재검토. 추가 확인 포인트 200자 이내.",`고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
           <AIBox loading={aiGet("dg_rc").loading} result={aiGet("dg_rc").result} error={aiGet("dg_rc").error} color={C.teal}/>
         </Panel>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({phase:0,step:4,status:"discovery"})}>← Discovery로</Btn><Btn v="teal" onClick={()=>next(1)}>완료 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({phase:0,step:4,status:"discovery"})}>{BTN_DG1_BACK}</Btn><Btn v="teal" onClick={()=>next(1)}>완료 →</Btn></div>
       </>}
 
       {/* DG2 솔루션 설계 */}
@@ -1860,7 +1889,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
           <Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn>
           <Btn v="teal" onClick={()=>next(2)} disabled={!(active.selectedSols||[]).length||!active.proposalDraft}>
-            {!(active.selectedSols||[]).length?"솔루션을 선택하세요":!active.proposalDraft?"제안서 초안을 먼저 생성하세요":"제안서 초안 완료 → 실현 가능성 평가 →"}
+            {!(active.selectedSols||[]).length?"솔루션을 선택하세요":!active.proposalDraft?"제안서 초안을 먼저 생성하세요":BTN_DG2_NEXT}
           </Btn>
         </div>
       </>}
@@ -1925,12 +1954,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
             return <Panel key={i} title={`솔루션 ${i+1} 실현 가능성 평가`} icon="🔍" bl={C.teal}>
               <div style={{fontSize:13,fontWeight:500,color:C.teal,marginBottom:10}}>{sol.title}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-                {[["체크","스마트폰 운영 가능",!!active.feasCheck[`${i}_0`],`${i}_0`],
-                  ["체크","기존 도구 연동 검토",!!active.feasCheck[`${i}_1`],`${i}_1`],
-                  ["체크","예산 범위 내",!!active.feasCheck[`${i}_2`],`${i}_2`],
-                  ["체크","고객 혼자 운영 가능",!!active.feasCheck[`${i}_3`],`${i}_3`],
-                  ["체크","2주 내 MVP 가능",!!active.feasCheck[`${i}_4`],`${i}_4`],
-                ].map(([,label,checked,key])=>(
+                {CL_DG3.map((lbl,j)=>(["체크",lbl,!!active.feasCheck[`${i}_${j}`],`${i}_${j}`])).map(([,label,checked,key])=>(
                   <label key={key} onClick={()=>updN("feasCheck",{[key]:!active.feasCheck[key]})}
                     style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:8,
                       border:`0.5px solid ${checked?"var(--color-border-success)":"var(--color-border-tertiary)"}`,
@@ -2037,7 +2061,7 @@ ${selectedOpts.join("\n")||"없음"}
                     aiSet("dg_proposal_revised",{loading:false,result:null,error:true});
                   }
                 }} disabled={aiGet("dg_proposal_revised").loading}>
-                  {aiGet("dg_proposal_revised").loading?"⟳ 권고 사항 반영해서 재생성 중...":"🔄 선택한 권고 사항 반영 → 제안서 재생성"}
+                  {aiGet("dg_proposal_revised").loading?"⟳ 권고 사항 반영해서 재생성 중...":BTN_DG3_REGEN}
                 </Btn>
                 {aiGet("dg_proposal_revised").loading&&(
                   <div style={{display:"flex",alignItems:"center",gap:8,padding:12,color:"var(--color-text-secondary)",fontSize:13,marginTop:10,background:"var(--color-background-secondary)",borderRadius:8}}>
@@ -2056,7 +2080,7 @@ ${selectedOpts.join("\n")||"없음"}
 
           <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
             <Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn>
-            <Btn v="teal" onClick={()=>next(3)}>평가 완료 → 제안서 최종 확인 →</Btn>
+            <Btn v="teal" onClick={()=>next(3)}>{BTN_DG3_NEXT}</Btn>
           </div>
         </>;
       })()}
@@ -2089,19 +2113,13 @@ ${selectedOpts.join("\n")||"없음"}
           }
         </Panel>
         <Panel title="제안서 완료 체크리스트" icon="✅">
-          {[
-            ["제안 솔루션(TO-BE) 내용 확인","시스템 개요, 기능, 기술스택 포함 여부"],
-            ["구축 범위 In/Out-Scope 명확히 기재","고객이 기대하는 것과 차이 없는지"],
-            ["추진 일정(WBS) 현실적인지 검토","고객 일정과 맞는지"],
-            ["사업비 항목별 내역 정확한지 확인","유지보수 비용 포함 여부"],
-            ["기대 효과 수치 근거 있는지 확인","ROI 계산 포함 여부"],
-          ].map(([t,s],i)=>(
+          {CL_DG4.map(([t,s],i)=>(
             <ChkItem key={i} label={t} sub={s} checked={!!active.propCheck?.[i]} onChange={()=>updN("propCheck",{[i]:!active.propCheck?.[i]})}/>
           ))}
         </Panel>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}>
           <Btn v="ghost" onClick={()=>upd({step:2})}>← 이전</Btn>
-          <Btn v="teal" onClick={()=>next(4)}>제안서 완료 → 발표 & 컨펌 →</Btn>
+          <Btn v="teal" onClick={()=>next(4)}>{BTN_DG4_NEXT}</Btn>
         </div>
       </>}
 
@@ -2109,16 +2127,16 @@ ${selectedOpts.join("\n")||"없음"}
       {active.step===4&&<>
         <InfoBanner phase="Diagnosis" step="STEP 5" color={C.teal} bg={C.tealBg}>제안서를 발표하고 최종 컨펌을 받습니다.</InfoBanner>
         <Panel title="반론 대응 AI 도우미" icon="💬">
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{["비용이 부담돼요","어렵게 느껴져요","나중에 생각해볼게요","직접 못 쓸 것 같아요"].map(q=><Tag key={q} label={q} selected={active.objection===q} color={C.teal} bg={C.tealBg} brd={C.tealLt} onClick={()=>upd({objection:active.objection===q?"":q})}/>)}</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{CL_DG5_OBJ.map(q=><Tag key={q} label={q} selected={active.objection===q} color={C.teal} bg={C.tealBg} brd={C.tealLt} onClick={()=>upd({objection:active.objection===q?"":q})}/>)}</div>
           <TA value={active.objection} onChange={v=>upd({objection:v})} placeholder="고객 반론 입력..." rows={2}/>
           <Btn v="teal" onClick={()=>runAI("dg_ob","고객 반론 대응 답변 200자 이내.",`반론:${active.objection}\n솔루션:${chosenSol?.title}`)} disabled={aiGet("dg_ob").loading||!active.objection} style={{marginTop:10}}>{aiGet("dg_ob").loading?"⟳ 생성 중...":"🤖 AI 대응 답변"}</Btn>
           <AIBox loading={aiGet("dg_ob").loading} result={aiGet("dg_ob").result} error={aiGet("dg_ob").error} color={C.teal}/>
         </Panel>
         <Panel title="컨펌 체크리스트" icon="✅">
-          {["제안서 전달 완료","솔루션 방향 합의","일정 및 비용 합의","착수 조건 확정"].map((t,i)=><ChkItem key={i} label={t} checked={!!active.presentCheck[i]} onChange={()=>updN("presentCheck",{[i]:!active.presentCheck[i]})}/>)}
+          {CL_DG5.map((t,i)=><ChkItem key={i} label={t} checked={!!active.presentCheck[i]} onChange={()=>updN("presentCheck",{[i]:!active.presentCheck[i]})}/>)}
         </Panel>
         <Panel title="계약 메모" icon="📋"><TA value={active.contractNote} onChange={v=>upd({contractNote:v})} placeholder="착수금, 일정, 특이사항..." rows={3}/></Panel>
-        <div style={{marginTop:14}}><Btn v="teal" onClick={()=>next(5)}>✓ Diagnosis 완료 → Build →</Btn></div>
+        <div style={{marginTop:14}}><Btn v="teal" onClick={()=>next(5)}>{BTN_DG5_NEXT}</Btn></div>
         <div style={{marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:3})}>← 이전</Btn></div>
       </>}
     </>}
@@ -2189,7 +2207,7 @@ ${selectedOpts.join("\n")||"없음"}
           </div>
         </Panel>
         <PMPanel cl={active} upd={upd}/>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({phase:1,step:4,status:"diagnosis"})}>← Diagnosis로</Btn><Btn v="purple" onClick={()=>next(1)}>착수 완료 → MVP 구현 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({phase:1,step:4,status:"diagnosis"})}>{BTN_B1_BACK}</Btn><Btn v="purple" onClick={()=>next(1)}>{BTN_B1_NEXT}</Btn></div>
       </>}
 
       {/* B2 MVP 구현 */}
@@ -2209,35 +2227,35 @@ ${selectedOpts.join("\n")||"없음"}
           }} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
           <AIBox loading={aiGet("b_rv").loading} result={aiGet("b_rv").result} error={aiGet("b_rv").error} color={C.purple}/>
         </Panel>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn><Btn v="purple" onClick={()=>next(2)}>MVP 완료 → 파일럿 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:0})}>← 이전</Btn><Btn v="purple" onClick={()=>next(2)}>{BTN_B2_NEXT}</Btn></div>
       </>}
 
       {/* B3 파일럿 테스트 */}
       {active.step===2&&<>
         <InfoBanner phase="Build" step="STEP 3" color={C.purple} bg={C.purpleBg}>고객과 함께 2주 파일럿을 진행합니다.</InfoBanner>
         <Panel title="파일럿 체크리스트" icon="🧪">
-          {["MVP 사용법 안내 완료","1주차 파일럿 + 중간 피드백","버그/불편 수정 완료","2주차 파일럿 + 최종 피드백","고객 만족도 확인"].map((t,i)=><ChkItem key={i} label={t} checked={!!active.buildCheck[`p${i}`]} onChange={()=>updN("buildCheck",{[`p${i}`]:!active.buildCheck[`p${i}`]})}/>)}
+          {CL_B3.map((t,i)=><ChkItem key={i} label={t} checked={!!active.buildCheck[`p${i}`]} onChange={()=>updN("buildCheck",{[`p${i}`]:!active.buildCheck[`p${i}`]})}/>)}
         </Panel>
         <Panel title="피드백 기록" icon="📋"><TA value={active.testNotes||""} onChange={v=>upd({testNotes:v})} placeholder="고객 피드백 내용..." rows={4}/></Panel>
         <Panel title="AI 사용 설명서 생성" icon="📖">
           <Btn v="purple" onClick={async()=>{aiSet("b_mn",{loading:true,result:null,error:false});try{const r=await claude("소상공인용 AI 솔루션 사용 설명서. 스마트폰 기준. 1.시작하기 2.매일 하는 일 3.문제 생겼을 때 4.문의 방법",`솔루션:${chosenSol?.title} 도구:${effectiveTool}\n고객:${active.name}(${active.industry}, AI친숙도:${active.aiLevel})`);upd({manualText:r});aiSet("b_mn",{loading:false,result:"완료",error:false});}catch{aiSet("b_mn",{loading:false,result:null,error:true});}}} disabled={aiGet("b_mn").loading}>{aiGet("b_mn").loading?"⟳ 생성 중...":"✨ AI 사용 설명서 생성"}</Btn>
           {active.manualText&&<><TA value={active.manualText} onChange={v=>upd({manualText:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.manualText,"mn")} style={{marginTop:8}}>{copied==="mn"?"✓ 복사됨":"📋 복사"}</Btn></>}
         </Panel>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="purple" onClick={()=>next(3)}>파일럿 완료 → 이관 →</Btn></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="purple" onClick={()=>next(3)}>{BTN_B3_NEXT}</Btn></div>
       </>}
 
       {/* B4 이관 & 완료 */}
       {active.step===3&&<>
         <InfoBanner phase="Build" step="STEP 4" color={C.purple} bg={C.purpleBg}>최종 이관 — 고객이 혼자 운영할 수 있도록 넘겨주세요.</InfoBanner>
         <Panel title="이관 체크리스트" icon="🎁">
-          {[["최종 사용 설명서 전달","1페이지+스크린샷"],["사용법 영상 1개 전달","3분 이내"],["계정 정리 문서 전달","공유 노션"],["고객 혼자 1회 실습","옆에서 보조"],["30일 A/S 채널 안내","카카오 오픈채팅"]].map(([t,s],i)=><ChkItem key={i} label={t} sub={s} checked={!!active.handoverCheck[i]} onChange={()=>updN("handoverCheck",{[i]:!active.handoverCheck[i]})}/>)}
+          {CL_B4.map(([t,s],i)=><ChkItem key={i} label={t} sub={s} checked={!!active.handoverCheck[i]} onChange={()=>updN("handoverCheck",{[i]:!active.handoverCheck[i]})}/>)}
         </Panel>
         <Panel title="케이스 스터디 기록" icon="📚">
           <Btn v="purple" onClick={async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude("AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</Btn>
           {active.caseStudy&&<><TA value={active.caseStudy} onChange={v=>upd({caseStudy:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.caseStudy,"cs")} style={{marginTop:8}}>{copied==="cs"?"✓ 복사됨":"📋 복사"}</Btn></>}
         </Panel>
         <Panel title="프로젝트 최종 완료" icon="🏆" style={{background:[0,1,2,3,4].every(i=>active.handoverCheck[i])?C.successBg:undefined}}>
-          <Btn v="success" onClick={()=>{next(4);upd({status:"complete"});}}>🎉 프로젝트 완료 확정</Btn>
+          <Btn v="success" onClick={()=>{next(4);upd({status:"complete"});}}>{BTN_B4_COMPLETE}</Btn>
         </Panel>
         <div style={{marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:2})}>← 이전</Btn></div>
       </>}
