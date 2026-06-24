@@ -8,7 +8,7 @@
 
 | 분류 | 기술 |
 |------|------|
-| 프론트엔드 | React 19, Vite 8 (단일 파일 `src/App.jsx`) |
+| 프론트엔드 | React 19, Vite 8+ (단일 파일 `src/App.jsx`) |
 | 백엔드 API | Vercel Serverless Functions (`/api/claude`, `/api/transcribe`) |
 | AI | Claude API (Anthropic) — 분석·생성, Whisper (OpenAI) — 음성→텍스트 |
 | DB | Supabase (PostgreSQL + JSONB) |
@@ -41,6 +41,7 @@ ANTHROPIC_API_KEY=         # Claude API 키
 OPENAI_API_KEY=            # Whisper STT 키
 VITE_SUPABASE_URL=         # Supabase 프로젝트 URL
 VITE_SUPABASE_ANON_KEY=    # Supabase anon key
+VITE_APP_PASSWORD=         # 앱 진입 비밀번호
 ```
 
 ---
@@ -143,11 +144,13 @@ AI 프로젝트 플랜 자동 생성:
 - Diagnosis 확정 솔루션·Pain Point·도구·기간 기반 스프린트 계획 자동 생성
 - 스프린트 2~3개, 태스크 스프린트당 4~6개 자동 배분
 
+탭 전환: 📋 보드 / 📅 간트 / 📉 번다운 / 👥 리소스 / 🔀 프로세스
+
 스프린트 보드 (Kanban):
 - 4개 컬럼: 백로그 / 진행중 / 완료 / 보류
 - 태스크 카드: 제목, 우선순위 배지, 스토리 포인트, 담당자
 - 상태 이동 버튼 + 태스크 삭제
-- 태스크 상세 편집: 제목(텍스트 입력), 담당자, 우선순위, 상태, 포인트
+- 태스크 상세 편집: 제목(텍스트 입력), 담당자, 우선순위, 상태, 포인트, 시작일/마감일, 입력/출력/설명
 - 담당자 목록: 리소스에 등록된 이름 기준 (미등록 시 기본 역할 목록)
 - 스프린트 추가 / 삭제
 
@@ -162,6 +165,11 @@ AI 프로젝트 플랜 자동 생성:
 - 오늘 기준 잔여 포인트 시각화
 - x축: 전체 프로젝트 시작일~종료일
 
+프로세스:
+- 태스크 의존관계 시각화 다이어그램
+- 스프린트 선택 후 태스크 간 선행/후행 관계 확인
+- 태스크 클릭 시 상세 정보(입력/출력/설명) 팝업
+
 리소스 관리:
 - 담당자별 이름, 역할, 가용률(%) 등록
 - 이름 기준 태스크 자동 매칭 → 할당 포인트, 완료 포인트, 부하율(%) 표시
@@ -172,12 +180,13 @@ AI 프로젝트 플랜 자동 생성:
 - MVP 완료 체크리스트
 
 **Step 3 · 파일럿 테스트**
-- 테스트 결과 메모
+- 파일럿 체크리스트: MVP 사용법 안내, 1·2주차 파일럿 진행, 버그 수정, 고객 만족도 확인
+- 피드백 기록 메모
 
 **Step 4 · 이관 & 완료**
-- 사용 매뉴얼 작성
-- 핸드오버 체크리스트
-- 사례 연구(Case Study) 메모
+- 이관 체크리스트: 운영 이관, 비용 정산, 유지보수 안내 등
+- AI 케이스 스터디 작성: 업종·솔루션·성과 기반 자동 생성 + 직접 편집 + 클립보드 복사
+- 프로젝트 최종 완료 처리
 
 ---
 
@@ -195,6 +204,7 @@ AI 프로젝트 플랜 자동 생성:
 
 ## UX / 공통
 
+- **비밀번호 보호**: 앱 진입 시 비밀번호 입력 — `VITE_APP_PASSWORD` 환경 변수로 설정 (sessionStorage 기반, 탭 닫으면 재인증)
 - **AI 사용 도우미**: 전 화면 우측 하단 플로팅 챗봇 — Phase·Step별 매뉴얼 기반 답변
 - **진행률 바**: 완료된 페이즈 스텝 수 기준 정확 계산 (전체 14스텝)
 - **마지막 수정 시각**: 저장 시마다 `updatedAt` 자동 갱신, 홈 카드에 표시
@@ -218,6 +228,7 @@ npm run dev
 ```
 VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_APP_PASSWORD=your_password
 ```
 
 > Claude / Whisper API 호출은 Vercel Function을 통해 프록시되므로 로컬에서는 `ANTHROPIC_API_KEY`와 `OPENAI_API_KEY`를 직접 노출하지 않습니다. 로컬 테스트 시 `vercel dev`를 사용하세요.
