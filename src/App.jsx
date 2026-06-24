@@ -2238,10 +2238,7 @@ ${selectedOpts.join("\n")||"없음"}
           {CL_B3.map((t,i)=><ChkItem key={i} label={t} checked={!!active.buildCheck[`p${i}`]} onChange={()=>updN("buildCheck",{[`p${i}`]:!active.buildCheck[`p${i}`]})}/>)}
         </Panel>
         <Panel title="피드백 기록" icon="📋"><TA value={active.testNotes||""} onChange={v=>upd({testNotes:v})} placeholder="고객 피드백 내용..." rows={4}/></Panel>
-        <Panel title="AI 사용 설명서 생성" icon="📖">
-          <Btn v="purple" onClick={async()=>{aiSet("b_mn",{loading:true,result:null,error:false});try{const r=await claude("소상공인용 AI 솔루션 사용 설명서. 스마트폰 기준. 1.시작하기 2.매일 하는 일 3.문제 생겼을 때 4.문의 방법",`솔루션:${chosenSol?.title} 도구:${effectiveTool}\n고객:${active.name}(${active.industry}, AI친숙도:${active.aiLevel})`);upd({manualText:r});aiSet("b_mn",{loading:false,result:"완료",error:false});}catch{aiSet("b_mn",{loading:false,result:null,error:true});}}} disabled={aiGet("b_mn").loading}>{aiGet("b_mn").loading?"⟳ 생성 중...":"✨ AI 사용 설명서 생성"}</Btn>
-          {active.manualText&&<><TA value={active.manualText} onChange={v=>upd({manualText:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.manualText,"mn")} style={{marginTop:8}}>{copied==="mn"?"✓ 복사됨":"📋 복사"}</Btn></>}
-        </Panel>
+
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="purple" onClick={()=>next(3)}>{BTN_B3_NEXT}</Btn></div>
       </>}
 
