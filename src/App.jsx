@@ -1251,9 +1251,11 @@ ${manualContext}`;
     try{
       const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}]})});
       const d=await r.json();
-      const answer=d.content?.[0]?.text||"답변을 가져오지 못했습니다.";
+      console.log("[Chatbot] API response:", d);
+      const answer=d.text||d.content?.[0]?.text||d.error||"답변을 가져오지 못했습니다.";
       setMessages(prev=>[...prev,{role:"assistant",text:answer}]);
-    }catch{
+    }catch(e){
+      console.error("[Chatbot] fetch error:", e);
       setMessages(prev=>[...prev,{role:"assistant",text:"오류가 발생했습니다. 다시 시도해주세요."}]);
     }finally{setLoading(false);}
   };
