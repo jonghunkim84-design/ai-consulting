@@ -1360,29 +1360,29 @@ ${manualContext}`;
   const faqs=FAQ_BUTTONS[contextKey]||FAQ_BUTTONS.default;
 
   return <>
-    {open&&<div style={{position:"fixed",right:24,bottom:88,width:360,height:500,borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.15)",background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",display:"flex",flexDirection:"column",zIndex:1000,fontFamily:"var(--font-sans)"}}>
+    {open&&<div style={{position:"fixed",right:24,bottom:88,width:360,height:500,borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",background:"#ffffff",border:"0.5px solid #e5e7eb",display:"flex",flexDirection:"column",zIndex:1000,fontFamily:"inherit"}}>
       {/* 헤더 */}
-      <div style={{padding:"12px 16px",borderBottom:"0.5px solid var(--color-border-tertiary)",display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:"12px 12px 0 0",background:C.blue,color:"#fff"}}>
+      <div style={{padding:"12px 16px",borderBottom:"0.5px solid #e5e7eb",display:"flex",alignItems:"center",justifyContent:"space-between",borderRadius:"12px 12px 0 0",background:C.blue,color:"#fff"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,fontWeight:500,fontSize:14}}>
           <span>🤖</span><span>AI 사용 도우미</span>
         </div>
         <button onClick={()=>setOpen(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#fff",fontSize:18,lineHeight:1,padding:0}}>✕</button>
       </div>
       {/* 메시지 영역 */}
-      <div style={{flex:1,overflowY:"auto",padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{alignSelf:"flex-start",background:"#F3F4F6",color:"var(--color-text-primary)",borderRadius:"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6}}>
+      <div style={{flex:1,overflowY:"auto",padding:"12px 16px",display:"flex",flexDirection:"column",gap:8,background:"#ffffff"}}>
+        <div style={{alignSelf:"flex-start",background:"#F3F4F6",color:"#111827",borderRadius:"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6}}>
           안녕하세요! 시스템 사용 관련 궁금한 점을 물어보세요. 😊
         </div>
         {messages.length===0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
-          {faqs.map((f,i)=><button key={i} onClick={()=>send(f)} style={{padding:"5px 10px",borderRadius:16,fontSize:12,background:C.blueBg,color:C.blue,border:`0.5px solid ${C.blueLt}`,cursor:"pointer",fontFamily:"var(--font-sans)"}}>{f}</button>)}
+          {faqs.map((f,i)=><button key={i} onClick={()=>send(f)} style={{padding:"5px 10px",borderRadius:16,fontSize:12,background:C.blueBg,color:C.blue,border:`0.5px solid ${C.blueLt}`,cursor:"pointer",fontFamily:"inherit"}}>{f}</button>)}
         </div>}
-        {messages.map((m,i)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",background:m.role==="user"?C.blue:"#F3F4F6",color:m.role==="user"?"#fff":"var(--color-text-primary)",borderRadius:m.role==="user"?"8px 8px 0 8px":"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.role==="assistant"?stripMd(m.text):m.text}</div>)}
-        {loading&&<div style={{alignSelf:"flex-start",background:"#F3F4F6",borderRadius:"8px 8px 8px 0",padding:"8px 14px",fontSize:18,color:"var(--color-text-secondary)",letterSpacing:2}}>···</div>}
+        {messages.map((m,i)=><div key={i} style={{alignSelf:m.role==="user"?"flex-end":"flex-start",background:m.role==="user"?C.blue:"#F3F4F6",color:m.role==="user"?"#fff":"#111827",borderRadius:m.role==="user"?"8px 8px 0 8px":"8px 8px 8px 0",padding:"8px 12px",fontSize:13,maxWidth:"85%",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.role==="assistant"?stripMd(m.text):m.text}</div>)}
+        {loading&&<div style={{alignSelf:"flex-start",background:"#F3F4F6",borderRadius:"8px 8px 8px 0",padding:"8px 14px",fontSize:18,color:"#6b7280",letterSpacing:2}}>···</div>}
         <div ref={endRef}/>
       </div>
       {/* 입력창 */}
-      <div style={{padding:"10px 12px",borderTop:"0.5px solid var(--color-border-tertiary)",display:"flex",gap:8,alignItems:"center"}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="질문을 입력하세요..." style={{flex:1,padding:"8px 12px",borderRadius:8,border:"0.5px solid var(--color-border-secondary)",fontSize:13,fontFamily:"var(--font-sans)",background:"var(--color-background-primary)",color:"var(--color-text-primary)",outline:"none"}}/>
+      <div style={{padding:"10px 12px",borderTop:"0.5px solid #e5e7eb",display:"flex",gap:8,alignItems:"center",background:"#f9fafb",borderRadius:"0 0 12px 12px"}}>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="질문을 입력하세요..." style={{flex:1,padding:"8px 12px",borderRadius:8,border:"0.5px solid #d1d5db",fontSize:13,fontFamily:"inherit",background:"#ffffff",color:"#111827",outline:"none"}}/>
         <button onClick={()=>send()} disabled={loading||!input.trim()} style={{width:36,height:36,borderRadius:8,background:C.blue,color:"#fff",border:"none",cursor:loading||!input.trim()?"not-allowed":"pointer",opacity:loading||!input.trim()?0.5:1,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>➤</button>
       </div>
     </div>}
