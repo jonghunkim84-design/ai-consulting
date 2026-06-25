@@ -251,6 +251,15 @@ function AIBox({loading,result,error,onRetry,color=C.teal}){
 }
 function InfoBanner({phase,step,color,bg,children}){return <div style={{background:bg,border:`0.5px solid ${color}30`,borderRadius:10,padding:"10px 14px",marginBottom:"1rem"}}><div style={{fontSize:12,color,fontWeight:500,marginBottom:3}}>{phase} · {step}</div><div style={{fontSize:13}}>{children}</div></div>;}
 
+const EmptyAIResult=({icon="✦",message,subMessage,onAction,actionLabel})=>(
+  <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"40px 24px",background:"var(--bg-subtle)",borderRadius:"var(--radius-lg)",border:"1.5px dashed var(--border-default)",textAlign:"center",gap:12}}>
+    <div style={{width:52,height:52,background:"linear-gradient(135deg,var(--phase-discovery-light),var(--phase-diagnosis-light))",borderRadius:"var(--radius-xl)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{icon}</div>
+    <p style={{fontSize:"var(--text-sm)",fontWeight:"var(--font-semibold)",color:"var(--text-secondary)",margin:0}}>{message}</p>
+    {subMessage&&<p style={{fontSize:"var(--text-xs)",color:"var(--text-tertiary)",margin:0,lineHeight:"var(--leading-relaxed)"}}>{subMessage}</p>}
+    {onAction&&<button className="btn-ai" onClick={onAction} style={{marginTop:4}}>{actionLabel}</button>}
+  </div>
+);
+
 // ── 신규 기능 1: 사전조사 패널 ──
 function ResearchPanel({cl,upd}){
   const [sL,setSL]=useState(false);
@@ -290,7 +299,7 @@ function ResearchPanel({cl,upd}){
     {/* ① AI 자동 조사 */}
     <Panel title="① AI 자동 사전 조사" icon="🔍">
       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:12}}>고객명·업종 기반으로 AI가 업종 특성, 트렌드, 예상 Pain Point를 정리합니다.</div>
-      <Btn v="blue" onClick={runSearch} disabled={sL}>{sL?"⟳ 조사 중...":"🔍 AI 자동 사전 조사 실행"}</Btn>
+      <button className="btn-ai" onClick={sL?undefined:runSearch} disabled={sL}>{sL?"⟳ 조사 중...":"🔍 AI 자동 사전 조사 실행"}</button>
       {sL&&<AIBox loading={true}/>}
       {cl.researchResult&&!sL&&(
         <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
@@ -319,7 +328,7 @@ function ResearchPanel({cl,upd}){
     {/* ④ 질문지 생성 */}
     <Panel title="④ 인터뷰 질문지 자동 생성" icon="📋">
       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:10}}>사전 조사 + 직접 입력 + 가설 Pain Point를 종합해서 맞춤형 질문지를 생성합니다.</div>
-      <Btn v="blue" onClick={genQ} disabled={qL}>{qL?"⟳ 질문지 생성 중...":"✨ 인터뷰 질문지 자동 생성"}</Btn>
+      <button className="btn-ai" onClick={qL?undefined:genQ} disabled={qL}>{qL?"⟳ 질문지 생성 중...":"✨ 인터뷰 질문지 자동 생성"}</button>
       {qL&&<AIBox loading={true} color={C.blue}/>}
       {cl.interviewQ&&!qL&&<>
         <TA value={cl.interviewQ} onChange={v=>upd({interviewQ:v})} rows={14} style={{marginTop:10}}/>
@@ -362,12 +371,12 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     <Panel title="AI 솔루션 자동 설계 (3안) — 복수 선택 가능" icon="⚙️">
       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:10}}>여러 개 선택 → 아래에서 하나의 통합 솔루션으로 합성됩니다.</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>{validPPs.map((p,i)=><Chip key={i} label={`#${i+1} ${p.title}`} color={C.teal} bg={C.tealBg}/>)}</div>
-      <Btn v="teal" onClick={()=>runAI("dg_sol",
+      <button className="btn-ai" onClick={aiGet("dg_sol").loading||!validPPs.length?undefined:()=>runAI("dg_sol",
         "소상공인 Pain Point용 AI 솔루션 3개. 순수 JSON만 출력.\n{\"solutions\":[{\"rank\":1,\"title\":\"명\",\"type\":\"유형\",\"desc\":\"설명1줄\",\"why\":\"이유1줄\",\"tool\":\"도구\",\"effort\":\"기간\",\"cost\":\"비용\"}]}",
         `고객:${cl.name} 업종:${cl.industry} AI친숙도:${cl.aiLevel||""}\nPP:${validPPs.map(p=>`${p.title}(${p.type})`).join(",")}\n예산:${cl.budget||""} 일정:${cl.timeline||""}`
       )} disabled={aiGet("dg_sol").loading||!validPPs.length}>
         {aiGet("dg_sol").loading?"⟳ 설계 중...":"✨ AI 솔루션 3개 자동 생성"}
-      </Btn>
+      </button>
       {aiGet("dg_sol").result&&!aiGet("dg_sol").error&&(()=>{
         let p=null;try{p=JSON.parse(aiGet("dg_sol").result.replace(/```json|```/g,"").trim());}catch{}
         if(p?.solutions&&!(cl.solutions||[]).every(s=>s.title)){setTimeout(()=>upd({solutions:p.solutions.map(s=>({title:s.title||"",type:s.type||"",desc:s.desc||"",why:s.why||"",tool:s.tool||"",effort:s.effort||"",cost:s.cost||""}))}),0);}
@@ -376,12 +385,15 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     </Panel>
 
     {/* 솔루션 카드 - 다중 선택 */}
+    {(cl.solutions||[]).length===0&&!aiGet("dg_sol").loading&&(
+      <EmptyAIResult icon="⚡" message="AI 솔루션이 아직 생성되지 않았습니다" subMessage="Pain Point를 입력한 뒤 위 버튼으로 솔루션을 자동 생성하세요"/>
+    )}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1rem"}}>
       {(cl.solutions||[]).slice(0,3).map((sol,i)=>{
         const isSel=selected.includes(i);
-        return <div key={i} onClick={()=>toggle(i)} style={{border:`${isSel?"2px":"0.5px"} solid ${isSel?C.teal:"var(--color-border-tertiary)"}`,borderRadius:12,padding:"12px",cursor:"pointer",background:isSel?C.tealBg:"var(--color-background-primary)",position:"relative"}}>
-          {isSel&&<div style={{position:"absolute",top:-1,left:8,background:C.teal,color:"#fff",fontSize:10,padding:"2px 8px",borderRadius:"0 0 6px 6px",fontWeight:500}}>✓ 선택 {selected.indexOf(i)+1}</div>}
-          <div style={{fontSize:11,fontWeight:500,color:C.teal,marginBottom:4,marginTop:isSel?8:0}}>옵션 {i+1}</div>
+        return <div key={i} onClick={()=>toggle(i)} className={`solution-card${isSel?" selected":""}`}>
+          {isSel&&<div style={{position:"absolute",top:-1,left:8,background:"var(--phase-diagnosis)",color:"#fff",fontSize:10,padding:"2px 8px",borderRadius:"0 0 6px 6px",fontWeight:500}}>✓ 선택 {selected.indexOf(i)+1}</div>}
+          <div style={{fontSize:11,fontWeight:500,color:"var(--phase-diagnosis)",marginBottom:4,marginTop:isSel?8:0}}>옵션 {i+1}</div>
           <div style={{fontSize:13,fontWeight:500,marginBottom:6}}>{sol.title||<span style={{color:"var(--color-text-secondary)"}}>솔루션 {i+1}</span>}</div>
           {sol.type&&<Chip label={sol.type} color={C.teal} bg={C.tealBg}/>}
           {sol.desc&&<div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:6,lineHeight:1.5}}>{sol.desc}</div>}
@@ -1228,9 +1240,9 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
         {cl.mergedSolution&&<span style={{fontSize:12,background:C.tealBg,color:C.teal,padding:"3px 10px",borderRadius:10}}>통합 솔루션 적용</span>}
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <Btn v="purple" onClick={genPlan} disabled={planL}>
+        <button className="btn-ai" onClick={planL?undefined:genPlan} disabled={planL}>
           {planL?"⟳ AI 플랜 생성 중...":"✨ AI 프로젝트 플랜 자동 생성"}
-        </Btn>
+        </button>
         {allTasks.length>0&&<span style={{fontSize:12,color:C.success,fontWeight:500}}>✓ 플랜 생성됨 ({allTasks.length}개 태스크)</span>}
       </div>
       {planL&&<div style={{display:"flex",alignItems:"center",gap:8,padding:14,color:"var(--color-text-secondary)",fontSize:13,marginTop:10,background:"var(--color-background-secondary)",borderRadius:8}}>⟳ 솔루션 정보를 분석해서 스프린트와 태스크를 생성하고 있습니다...</div>}
@@ -1250,6 +1262,9 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
     <div style={{display:"flex",border:"0.5px solid var(--color-border-tertiary)",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
       {[["board","📋 보드"],["gantt","📅 간트"],["burndown","📉 번다운"],["resources","👥 리소스"],["process","🔀 프로세스"]].map(([v,l])=><button key={v} onClick={()=>setView(v)} style={{flex:1,minWidth:0,padding:"8px 2px",fontSize:12,border:"none",borderRight:"0.5px solid var(--color-border-tertiary)",background:view===v?C.purpleBg:"transparent",color:view===v?C.purple:"var(--color-text-secondary)",cursor:"pointer",fontFamily:"inherit",fontWeight:view===v?500:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l}</button>)}
     </div>
+    {view==="board"&&allTasks.length===0&&!planL&&(
+      <EmptyAIResult icon="📋" message="프로젝트 플랜이 없습니다" subMessage="위 버튼으로 AI 플랜을 생성하면 스프린트와 태스크가 자동으로 생성됩니다" onAction={genPlan} actionLabel="✨ AI 프로젝트 플랜 자동 생성"/>
+    )}
     {view==="board"&&<PMBoard pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="gantt"&&<PMGantt pm={pm} updSprints={updSprints} updPM={updPM}/>}
     {view==="burndown"&&<Burndown/>}
@@ -1528,31 +1543,35 @@ export default function App(){
         <div style={{fontSize:11,color:"var(--color-text-secondary)",lineHeight:1.5}}>{p.sub}</div>
       </div>)}
     </div>
-    {clients.length===0?<div style={{textAlign:"center",padding:"3rem 0",color:"var(--color-text-secondary)"}}>
-      <div style={{fontSize:40,marginBottom:12}}>👤</div>
-      <div style={{fontSize:14,marginBottom:16}}>등록된 고객이 없습니다</div>
-      <Btn v="blue" onClick={addClient}>+ 첫 고객 등록하기</Btn>
-    </div>:clients.map(c=>{
+    {clients.length===0?(
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"64px 24px",textAlign:"center",gap:16}}>
+        <div style={{width:72,height:72,background:"var(--phase-discovery-light)",borderRadius:"var(--radius-xl)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,marginBottom:8}}>🤝</div>
+        <h3 style={{fontSize:"var(--text-lg)",fontWeight:"var(--font-semibold)",color:"var(--text-primary)",margin:0}}>첫 번째 고객을 등록해보세요</h3>
+        <p style={{fontSize:"var(--text-sm)",color:"var(--text-tertiary)",lineHeight:"var(--leading-relaxed)",maxWidth:320,margin:0}}>+ 신규 고객 등록 버튼을 눌러 고객 정보를 입력하면<br/>Discovery 단계부터 시작합니다.</p>
+        <button className="btn-primary" onClick={addClient} style={{marginTop:8}}>+ 신규 고객 등록</button>
+      </div>
+    ):clients.map(c=>{
       const ph=PHASES[c.phase]||PHASES[0];const col=pc(c.phase);const bg=pb(c.phase);
       const completedSteps=c.phasesDone.reduce((acc,done,i)=>acc+(done?PHASES[i].steps.length:(c.phase===i?c.step:0)),0);
       const prg=c.status==="complete"?100:Math.round(completedSteps/14*100);
       return <div key={c.id} onClick={()=>{setActiveId(c.id);setView("client");}}
-        style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,padding:"14px 16px",marginBottom:8,cursor:"pointer",background:"var(--color-background-primary)"}}
-        onMouseEnter={e=>e.currentTarget.style.background="var(--color-background-secondary)"}
-        onMouseLeave={e=>e.currentTarget.style.background="var(--color-background-primary)"}>
+        className={`client-card phase-${ph.key}`}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:40,height:40,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{c.status==="complete"?"🏆":["🔍","🔬","🔨"][c.phase]}</div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-              <span style={{fontSize:14,fontWeight:500}}>{c.name||"(이름 미입력)"}</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{fontSize:14,fontWeight:600,color:"var(--text-primary)"}}>{c.name||"(이름 미입력)"}</span>
               {c.industry&&<Chip label={c.industry} color={col} bg={bg}/>}
+              <span className={`phase-badge ${ph.key}`}>{c.status==="complete"?"✓ 완료":ph.label}</span>
             </div>
-            <div style={{fontSize:12,color:col,fontWeight:500}}>{c.status==="complete"?"✓ 전체 완료":`${ph.label} · ${ph.steps[c.step]||""}`}</div>
-            {c.updatedAt&&<div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:3}}>{new Date(c.updatedAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} 수정</div>}
+            <div style={{fontSize:12,color:"var(--text-tertiary)"}}>{c.status==="complete"?"전체 완료":`${ph.steps[c.step]||""}`}</div>
+            {c.updatedAt&&<div style={{fontSize:11,color:"var(--text-disabled)",marginTop:3}}>{new Date(c.updatedAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} 수정</div>}
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontSize:12,fontWeight:500,color:col,marginBottom:4}}>{prg}%</div>
-            <div style={{width:60,height:3,background:"var(--color-background-secondary)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${prg}%`,background:col,borderRadius:2}}/></div>
+            <div style={{fontSize:13,fontWeight:600,color:col,marginBottom:2}}>{prg}%</div>
+            <div className="progress-bar-track" style={{width:64}}>
+              <div className={`progress-bar-fill ${ph.key}`} style={{width:`${prg}%`}}/>
+            </div>
           </div>
           <button
             onClick={e=>{e.stopPropagation();if(window.confirm(`${c.name||"이 고객"}을 삭제할까요?`)){deleteClient(c.id);setClients(cs=>cs.filter(x=>x.id!==c.id));}}}
@@ -1728,12 +1747,15 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
             {[["고객",active.name],["업종",active.industry],["AI 친숙도",active.aiLevel],["녹음파일",active.audioFileName||"없음"]].map(([l,v])=><div key={l} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:2}}>{l}</div><div style={{fontSize:13,fontWeight:500}}>{v||"미입력"}</div></div>)}
           </div>
-          <Btn v="blue" onClick={()=>runAI("d_an","소상공인 인터뷰 분석. 순수 JSON만 출력.\n{\"painPoints\":[{\"rank\":1,\"title\":\"제목\",\"type\":\"반복업무자동화|정보부족분석|고객응대자동화\",\"impact\":\"영향1줄\",\"solution\":\"솔루션방향1줄\"}],\"summary\":\"요약2줄\",\"nextAction\":\"권고1줄\"}",
+          <button className="btn-ai" onClick={aiGet("d_an").loading?undefined:()=>runAI("d_an","소상공인 인터뷰 분석. 순수 JSON만 출력.\n{\"painPoints\":[{\"rank\":1,\"title\":\"제목\",\"type\":\"반복업무자동화|정보부족분석|고객응대자동화\",\"impact\":\"영향1줄\",\"solution\":\"솔루션방향1줄\"}],\"summary\":\"요약2줄\",\"nextAction\":\"권고1줄\"}",
             `고객:${active.name} 업종:${active.industry} AI친숙도:${active.aiLevel}\n가설:${(active.hypothesis||[]).join(",")}\nQ1:${active.notes.q1}\nQ2:${active.notes.q2}\nQ3:${active.notes.q3}\n추가:${active.notes.extra}\n${active.transcript?"[녹음 파일 변환 텍스트]\n"+active.transcript:""}`
-          )} disabled={aiGet("d_an").loading}>{aiGet("d_an").loading?"⟳ 분석 중...":"✨ AI 분석 실행"}</Btn>
+          )} disabled={aiGet("d_an").loading}>{aiGet("d_an").loading?"⟳ 분석 중...":"✨ AI 분석 실행"}</button>
           {(()=>{const a=aiGet("d_an");if(a.loading)return <AIBox loading={true} color={C.blue}/>;if(a.error)return <AIBox error={true} color={C.blue}/>;if(a.result){let p=null;try{p=JSON.parse(a.result.replace(/```json|```/g,"").trim());}catch{}if(p?.painPoints){if(active.painPoints.every(pp=>!pp.title))setTimeout(()=>upd({painPoints:p.painPoints.map(pp=>({title:pp.title||"",type:pp.type||"",impact:pp.impact||"",solution:pp.solution||""}))}),0);return <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:8}}>✦ AI 분석 완료</div>{p.summary&&<div style={{marginBottom:10,paddingBottom:10,borderBottom:"0.5px solid var(--color-border-tertiary)"}}>{p.summary}</div>}{p.painPoints.map((pp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{pp.rank} {pp.title} <Chip label={pp.type} color={C.blue} bg={C.blueBg}/></div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>영향: {pp.impact}</div><div style={{fontSize:12,color:C.success}}>→ {pp.solution}</div></div>)}{p.nextAction&&<div style={{fontSize:12,color:C.warn,marginTop:6}}>→ {p.nextAction}</div>}</div>;}return <AIBox loading={false} result={a.result} error={false} color={C.blue}/>;}return null;})()}
         </Panel>
         <Panel title="Pain Point 편집" icon="📋">
+          {(active.painPoints||[]).every(pp=>!pp.title)&&!aiGet("d_an").loading&&(
+            <EmptyAIResult icon="🔍" message="AI 분석 결과가 없습니다" subMessage="위 버튼으로 AI 분석을 실행하면 Pain Point가 자동으로 채워집니다"/>
+          )}
           {(active.painPoints||[]).map((pp,i)=><div key={i} style={{border:"0.5px solid var(--color-border-tertiary)",borderRadius:8,padding:"12px",marginBottom:10,position:"relative"}}>
             <div style={{position:"absolute",top:8,right:10,fontSize:11,background:C.blueBg,color:C.blue,padding:"2px 8px",borderRadius:10}}>#{i+1}</div>
             <FL c="제목" mt={0} req/><Inp value={pp.title} onChange={v=>upd({painPoints:active.painPoints.map((p,j)=>j===i?{...p,title:v}:p)})} placeholder="예: 재고 수기 관리" req/>
@@ -1804,7 +1826,10 @@ export default function App(){
                 </div>
               ))}
             </div>
-            <Btn v="teal" onClick={async()=>{
+            {!active.proposalDraft&&!aiGet("dg_proposal_draft").loading&&!aiGet("dg_proposal_draft").error&&(
+              <EmptyAIResult icon="📄" message="제안서 초안이 없습니다" subMessage="솔루션을 선택한 뒤 아래 버튼으로 제안서 초안을 자동 생성하세요"/>
+            )}
+            <button className="btn-ai" onClick={aiGet("dg_proposal_draft").loading||!chosenSol?.title?undefined:async()=>{
               aiSet("dg_proposal_draft",{loading:true,result:null,error:false});
               try{
                 const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
@@ -1858,7 +1883,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
               }
             }} disabled={aiGet("dg_proposal_draft").loading||!chosenSol?.title}>
               {aiGet("dg_proposal_draft").loading?"⟳ 제안서 초안 생성 중...":"✨ 제안서 초안 자동 생성 (6개 항목)"}
-            </Btn>
+            </button>
             {aiGet("dg_proposal_draft").error&&<AIBox loading={false} result={null} error={true} color={C.teal}/>}
             {(active.proposalDraft||aiGet("dg_proposal_draft").loading)&&!aiGet("dg_proposal_draft").error&&(
               aiGet("dg_proposal_draft").loading
@@ -2249,7 +2274,7 @@ ${selectedOpts.join("\n")||"없음"}
           {CL_B4.map(([t,s],i)=><ChkItem key={i} label={t} sub={s} checked={!!active.handoverCheck[i]} onChange={()=>updN("handoverCheck",{[i]:!active.handoverCheck[i]})}/>)}
         </Panel>
         <Panel title="케이스 스터디 기록" icon="📚">
-          <Btn v="purple" onClick={async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude("AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</Btn>
+          <button className="btn-ai" onClick={aiGet("b_cs").loading?undefined:async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude("AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</button>
           {active.caseStudy&&<><TA value={active.caseStudy} onChange={v=>upd({caseStudy:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.caseStudy,"cs")} style={{marginTop:8}}>{copied==="cs"?"✓ 복사됨":"📋 복사"}</Btn></>}
         </Panel>
         <Panel title="프로젝트 최종 완료" icon="🏆" style={{background:[0,1,2,3,4].every(i=>active.handoverCheck[i])?C.successBg:undefined}}>
