@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════════════════
+   AI 컨설팅 시스템 — Design Token System
+   UI 개선 작업 #1 : 컬러 + 타이포그래피 토대
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  /* ── Background ── */
+  --bg-base:    #F8F9FB;
+  --bg-surface: #FFFFFF;
+  --bg-subtle:  #F1F3F7;
+  --bg-overlay: #FFFFFF;
+
+  /* ── Phase Colors ── */
+  --phase-discovery:        #2563EB;
+  --phase-discovery-light:  #EFF6FF;
+  --phase-discovery-border: #BFDBFE;
+
+  --phase-diagnosis:        #7C3AED;
+  --phase-diagnosis-light:  #F5F3FF;
+  --phase-diagnosis-border: #DDD6FE;
+
+  --phase-build:        #059669;
+  --phase-build-light:  #ECFDF5;
+  --phase-build-border: #A7F3D0;
+
+  /* ── Brand ── */
+  --brand-primary:   #2563EB;
+  --brand-secondary: #7C3AED;
+
+  --ai-gradient:       linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+  --ai-gradient-hover: linear-gradient(135deg, #1D4ED8 0%, #6D28D9 100%);
+
+  /* ── Semantic ── */
+  --color-success: #059669;
+  --color-warning: #D97706;
+  --color-danger:  #DC2626;
+  --color-info:    #0891B2;
+
+  /* ── Text ── */
+  --text-primary:   #0F172A;
+  --text-secondary: #374151;
+  --text-tertiary:  #6B7280;
+  --text-disabled:  #9CA3AF;
+  --text-inverse:   #FFFFFF;
+
+  /* ── Border ── */
+  --border-light:   #E5E7EB;
+  --border-default: #D1D5DB;
+  --border-strong:  #9CA3AF;
+
+  /* ── Shadow ── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.08), 0 10px 10px rgba(0, 0, 0, 0.03);
+
+  --card-shadow:       var(--shadow-sm);
+  --card-shadow-hover: var(--shadow-md);
+
+  /* ── Border Radius ── */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ── Spacing (8px grid) ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Typography ── */
+  --font-family-base: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 14px;
+  --text-md:   15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+
+  --font-normal:   400;
+  --font-medium:   500;
+  --font-semibold: 600;
+  --font-bold:     700;
+
+  --leading-tight:   1.3;
+  --leading-snug:    1.45;
+  --leading-normal:  1.6;
+  --leading-relaxed: 1.75;
+
+  --tracking-tight:  -0.02em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.02em;
+  --tracking-wider:   0.05em;
+
+  /* ── Legacy aliases (App.jsx 기존 참조 유지) ── */
+  --font-sans:                  var(--font-family-base);
+  --color-background-primary:   var(--bg-surface);
+  --color-background-secondary: var(--bg-subtle);
+  --color-background-success:   var(--phase-build-light);
+  --color-text-primary:         var(--text-primary);
+  --color-text-secondary:       var(--text-tertiary);
+  --color-border-secondary:     var(--border-default);
+  --color-border-tertiary:      var(--border-light);
+  --color-border-success:       var(--phase-build-border);
+}
+
+/* ── Dark Mode ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-base:    #0F172A;
+    --bg-surface: #1E293B;
+    --bg-subtle:  #334155;
+    --bg-overlay: #1E293B;
+
+    --text-primary:   #F8FAFC;
+    --text-secondary: #E2E8F0;
+    --text-tertiary:  #94A3B8;
+    --text-disabled:  #64748B;
+
+    --border-light:   #334155;
+    --border-default: #475569;
+    --border-strong:  #64748B;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  background-color: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Heading Scale ── */
+h1 {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+h2 {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+label, .label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+.caption {
+  font-size: var(--text-xs);
+  color: var(--text-disabled);
+  letter-spacing: var(--tracking-wider);
+}
+
+/* ── Input / Textarea / Select ── */
+input, textarea, select {
+  font-family: var(--font-family-base);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
