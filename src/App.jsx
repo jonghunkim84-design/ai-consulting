@@ -1611,8 +1611,8 @@ export default function App(){
     </div>
     {/* Step 바 */}
     {(()=>{
-      const PCOL=["var(--phase-discovery)","var(--phase-diagnosis)","var(--phase-build)"];
-      const PLIGHT=["var(--phase-discovery-light)","var(--phase-diagnosis-light)","var(--phase-build-light)"];
+      const PCOL=["#2563EB","#7C3AED","#059669"];
+      const PLIGHT=["#EFF6FF","#F5F3FF","#ECFDF5"];
       const phaseColor=PCOL[active.phase]||PCOL[0];
       const phaseLightColor=PLIGHT[active.phase]||PLIGHT[0];
       return (
