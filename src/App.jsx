@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { supabase } from './supabase.js'
 
 const C={blue:"#185FA5",blueBg:"#E6F1FB",blueLt:"#B5D4F4",teal:"#0F6E56",tealBg:"#E1F5EE",tealLt:"#9FE1CB",purple:"#534AB7",purpleBg:"#EEEDFE",success:"#3B6D11",successBg:"#EAF3DE",warn:"#854F0B",warnBg:"#FAEEDA",danger:"#A32D2D",dangerBg:"#FCEBEB",gray:"#5F5E5A",grayBg:"#F1EFE8"};
@@ -1609,16 +1609,44 @@ export default function App(){
         </div>;
       })}
     </div>
-    {/* Step 탭 */}
-    <div style={{display:"flex",border:"0.5px solid var(--color-border-tertiary)",borderRadius:12,overflow:"hidden",marginBottom:"1.25rem"}}>
-      {steps.map((s,i)=>{const ia=active.step===i&&!active.phasesDone[active.phase],id=i<active.step||active.phasesDone[active.phase];
-        return <button key={i} onClick={()=>upd({step:i})} style={{flex:1,padding:"7px 3px",fontSize:10,border:"none",borderRight:i<steps.length-1?"0.5px solid var(--color-border-tertiary)":"none",background:ia?bg:id?"var(--color-background-success)":"transparent",color:ia?col:id?C.success:"var(--color-text-secondary)",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontFamily:"inherit",fontWeight:ia?500:400,position:"relative"}}>
-          {id&&<span style={{position:"absolute",top:3,right:4,fontSize:9,color:C.success}}>✓</span>}
-          <span style={{fontSize:9,opacity:0.7}}>STEP {i+1}</span>
-          <span style={{lineHeight:1.3,textAlign:"center"}}>{s}</span>
-        </button>;
-      })}
-    </div>
+    {/* Step 바 */}
+    {(()=>{
+      const PCOL=["var(--phase-discovery)","var(--phase-diagnosis)","var(--phase-build)"];
+      const PLIGHT=["var(--phase-discovery-light)","var(--phase-diagnosis-light)","var(--phase-build-light)"];
+      const phaseColor=PCOL[active.phase]||PCOL[0];
+      const phaseLightColor=PLIGHT[active.phase]||PLIGHT[0];
+      return (
+        <div style={{display:"flex",alignItems:"center",background:"transparent",padding:"12px 0",marginBottom:"1.25rem"}}>
+          {steps.map((s,i)=>{
+            const ia=active.step===i&&!active.phasesDone[active.phase];
+            const id=i<active.step||active.phasesDone[active.phase];
+            const circleStyle=ia
+              ?{background:phaseColor,color:"#fff",border:`2px solid ${phaseColor}`,boxShadow:`0 0 0 3px ${phaseLightColor}`}
+              :id
+              ?{background:phaseLightColor,color:phaseColor,border:`2px solid ${phaseColor}`}
+              :{background:"transparent",color:"var(--text-disabled)",border:"2px dashed var(--border-default)"};
+            const labelStyle=ia
+              ?{color:phaseColor,fontWeight:600}
+              :id
+              ?{color:"var(--text-tertiary)",fontWeight:400}
+              :{color:"var(--text-disabled)",fontWeight:400};
+            return (
+              <Fragment key={i}>
+                <div onClick={()=>upd({step:i})} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:56,cursor:"pointer"}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,transition:"all 0.25s ease",...circleStyle}}>
+                    {id?"✓":i+1}
+                  </div>
+                  <span style={{fontSize:10,textAlign:"center",lineHeight:1.3,transition:"color 0.25s ease",maxWidth:52,...labelStyle}}>{s}</span>
+                </div>
+                {i<steps.length-1&&(
+                  <div style={{flex:1,marginBottom:22,transition:"all 0.25s ease",...(id?{height:2,background:phaseColor}:{height:0,borderTop:"2px dashed var(--border-default)"})}}/>
+                )}
+              </Fragment>
+            );
+          })}
+        </div>
+      );
+    })()}
 
     {/* ═══ PHASE 1 DISCOVERY ═══ */}
     {active.phase===0&&<>
