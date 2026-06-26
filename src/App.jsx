@@ -273,10 +273,14 @@ function ResearchPanel({cl,upd}){
     setSL(true);
     try{
       const r=await claude(
-        "소상공인 AI 컨설턴트. 업체 사전 조사 리포트 작성.\n반드시 아래 형식으로:\n[업체 기본 정보]\n• 예상 운영 형태:\n• 주요 고객층:\n• 경쟁 환경:\n\n[업종 트렌드 & 디지털화 수준]\n•\n•\n\n[예상 Pain Point Top 3]\n1.\n2.\n3.\n\n[첫 미팅 주의사항]\n•",
-        `상호명:${cl.name} / 업종:${cl.industry} / 지역:${cl.region||"미입력"} / 규모:${cl.size||"미입력"}\n추가정보:${direct||"없음"}`
+        "당신은 AI 컨설팅 전문가입니다.\n소상공인 고객 미팅 전 사전조사 결과를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
+        `업체명: ${cl.name}\n업종: ${cl.industry}\n\n위 업체에 대해 AI 컨설팅 미팅 전 사전조사를 수행하고 아래 JSON 형식으로만 응답하세요. 각 항목은 3줄 이내로 간결하게 작성하세요.\n\n{"industryCharacteristics":"이 업종의 핵심 특성과 운영 구조","recentTrends":"최근 1~2년 업종 트렌드와 시장 변화","expectedPainPoints":["예상 Pain Point 1","예상 Pain Point 2","예상 Pain Point 3"],"meetingTips":["첫 미팅 팁 1","첫 미팅 팁 2","첫 미팅 팁 3"],"keyQuestions":["핵심 질문 1","핵심 질문 2"]}`,
+        1500
       );
-      upd({researchResult:r,directInfo:direct});
+      const clean=r.replace(/```json|```/g,"").trim();
+      let parsed;
+      try{parsed=JSON.parse(clean);}catch{alert("사전조사 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setSL(false);return;}
+      upd({researchResult:parsed,directInfo:direct});
     }catch(e){alert("조사 실패. 다시 시도해 주세요.");}
     setSL(false);
   };
@@ -285,9 +289,12 @@ function ResearchPanel({cl,upd}){
     if(!cl.researchResult&&!direct&&!(cl.hypothesis||[]).length){alert("사전 조사 또는 직접 입력 정보가 필요합니다.");return;}
     setQL(true);
     try{
+      const researchStr=typeof cl.researchResult==="object"&&cl.researchResult
+        ?`업종특성:${cl.researchResult.industryCharacteristics||""} / 트렌드:${cl.researchResult.recentTrends||""} / 예상PP:${(cl.researchResult.expectedPainPoints||[]).join(", ")}`
+        :(cl.researchResult||"없음");
       const r=await claude(
         "소상공인 첫 미팅 인터뷰 질문지 작성.\n형식:\n[필수 질문 - 반드시 물어볼 것]\nQ1. (하루 일과)\nQ2. (시간/실수 낭비)\nQ3. (걱정/고민)\n\n[심화 질문 - 상황에 따라 선택]\nQ4. (업종 특화)\nQ5. (Pain Point 검증)\nQ6. (예산/의사결정)\n\n[현장 팁]\n• 이 고객에게 특히 주의할 점",
-        `상호:${cl.name} / 업종:${cl.industry}\n사전조사:${cl.researchResult||"없음"}\n직접수집:${direct||"없음"}\n가설PP:${(cl.hypothesis||[]).join(",")||"없음"}`
+        `상호:${cl.name} / 업종:${cl.industry}\n사전조사:${researchStr}\n직접수집:${direct||"없음"}\n가설PP:${(cl.hypothesis||[]).join(",")||"없음"}`
       );
       upd({interviewQ:r,directInfo:direct});
     }catch(e){alert("생성 실패.");}
@@ -303,10 +310,41 @@ function ResearchPanel({cl,upd}){
       <button className="btn-ai" onClick={sL?undefined:runSearch} disabled={sL}>{sL?"⟳ 조사 중...":"🔍 AI 자동 사전 조사 실행"}</button>
       {sL&&<AIBox loading={true}/>}
       {cl.researchResult&&!sL&&(
-        <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
-          <div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:6}}>✦ 사전 조사 완료</div>
-          {cl.researchResult}
-        </div>
+        typeof cl.researchResult==="object"?(
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
+            <div style={{background:C.blueBg,border:`1px solid ${C.blueLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.blue,marginBottom:6}}>📊 업종 특성</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.researchResult.industryCharacteristics}</p>
+            </div>
+            <div style={{background:C.purpleBg,border:"1px solid #C5C1F5",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.purple,marginBottom:6}}>📈 최근 트렌드</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.researchResult.recentTrends}</p>
+            </div>
+            <div style={{background:C.warnBg,border:"1px solid #F7CE8A",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.warn,marginBottom:8}}>⚠️ 예상 Pain Point</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(cl.researchResult.expectedPainPoints||[]).map((pt,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.warn,marginTop:2}}>•</span><span>{pt}</span></li>)}
+              </ul>
+            </div>
+            <div style={{background:C.tealBg,border:`1px solid ${C.tealLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.teal,marginBottom:8}}>💡 첫 미팅 팁</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(cl.researchResult.meetingTips||[]).map((tip,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.teal,marginTop:2}}>•</span><span>{tip}</span></li>)}
+              </ul>
+            </div>
+            <div style={{background:C.grayBg,border:"1px solid #D9D7D0",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:8}}>❓ 이 업종 핵심 질문</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(cl.researchResult.keyQuestions||[]).map((q,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.gray,marginTop:2,fontWeight:600,minWidth:24}}>Q{i+1}.</span><span>{q}</span></li>)}
+              </ul>
+            </div>
+          </div>
+        ):(
+          <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
+            <div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:6}}>✦ 사전 조사 완료</div>
+            {cl.researchResult}
+          </div>
+        )
       )}
     </Panel>
 
