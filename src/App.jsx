@@ -432,10 +432,15 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     const chosen=selected.map(i=>(cl.solutions||[])[i]).filter(Boolean);
     try{
       const r=await claude(
-        "소상공인 AI 솔루션 통합 합성. 형식:\n[통합 솔루션명]\n[핵심 개요] 2줄\n[구성 요소] 각 솔루션 통합 방식\n[사용 도구] 전체 목록\n[예상 기간] 통합 기준\n[예상 비용] 통합 기준\n[기대 효과] 수치 포함\n[구현 순서] 단계별",
-        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}`
+        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n아래 JSON 형식으로만 출력하세요. 마크다운, 설명 텍스트 없이 JSON만 출력하세요.\n내용을 축약하지 마세요. 각 항목을 충분한 분량으로 구체적으로 작성하세요.",
+        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 형식으로 출력하라. 내용을 줄이거나 요약하지 말고 전체를 담아라.\n\n{"solutionTitle":"통합 솔루션명","overview":"핵심 개요 (구체적으로 작성)","components":"구성 요소 — 각 솔루션 통합 방식 (상세히)","tools":"사용 도구 전체 목록","timeline":"예상 기간 (통합 기준)","cost":"예상 비용 (통합 기준)","expectedEffect":"기대 효과 (수치 포함, 상세히)","implementationOrder":"구현 순서 단계별 (상세히)"}`,
+        4000
       );
-      upd({mergedSolution:{title:`통합 솔루션 (${chosen.length}개 합성)`,desc:r,components:chosen}});
+      const clean=r.replace(/```json|```/g,"").trim();
+      let parsed;
+      try{parsed=JSON.parse(clean);}
+      catch{console.error("합성 parse error. Raw:",r);alert("솔루션 합성 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setMergeL(false);return;}
+      upd({mergedSolution:{title:parsed.solutionTitle||`통합 솔루션 (${chosen.length}개 합성)`,desc:parsed,components:chosen}});
     }catch(e){alert("합성 실패.");}
     setMergeL(false);
   };
@@ -495,11 +500,48 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
       </div>
       {selected.length>=2&&<Btn v="teal" onClick={merge} disabled={mergeL}>{mergeL?"⟳ 통합 합성 중...":"🔗 통합 솔루션 자동 합성"}</Btn>}
       {mergeL&&<AIBox loading={true} color={C.teal}/>}
-      {cl.mergedSolution&&!mergeL&&<div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-primary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
-        <div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:6}}>✦ 통합 솔루션</div>
-        <div style={{fontWeight:500,fontSize:14,marginBottom:8}}>{cl.mergedSolution.title}</div>
-        {cl.mergedSolution.desc}
-      </div>}
+      {cl.mergedSolution&&!mergeL&&(
+        typeof cl.mergedSolution.desc==="object"&&cl.mergedSolution.desc?(
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
+            <div style={{background:C.tealBg,border:`1px solid ${C.tealLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.teal,marginBottom:6}}>🎯 {cl.mergedSolution.title}</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.overview}</p>
+            </div>
+            <div style={{background:C.blueBg,border:`1px solid ${C.blueLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.blue,marginBottom:6}}>🔧 구성 요소</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.components}</p>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{background:C.grayBg,border:"1px solid #D9D7D0",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:6}}>⚙️ 사용 도구</div>
+                <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.tools}</p>
+              </div>
+              <div style={{background:C.warnBg,border:"1px solid #F7CE8A",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:11,fontWeight:600,color:C.warn,marginBottom:6}}>⏱ 예상 기간</div>
+                <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.timeline}</p>
+              </div>
+            </div>
+            <div style={{background:C.purpleBg,border:"1px solid #C5C1F5",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.purple,marginBottom:6}}>💰 예상 비용</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.cost}</p>
+            </div>
+            <div style={{background:"#EAF3DE",border:"1px solid #B8DBA8",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.success,marginBottom:6}}>💡 기대 효과</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.expectedEffect}</p>
+            </div>
+            <div style={{background:C.grayBg,border:"1px solid #D9D7D0",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:6}}>📅 구현 순서</div>
+              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.implementationOrder}</p>
+            </div>
+          </div>
+        ):(
+          <div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-primary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
+            <div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:6}}>✦ 통합 솔루션</div>
+            <div style={{fontWeight:500,fontSize:14,marginBottom:8}}>{cl.mergedSolution.title}</div>
+            {typeof cl.mergedSolution.desc==="string"?cl.mergedSolution.desc:""}
+          </div>
+        )
+      )}
     </Panel>}
   </>;
 }
