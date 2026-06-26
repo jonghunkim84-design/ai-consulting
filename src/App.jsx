@@ -432,14 +432,15 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     const chosen=selected.map(i=>(cl.solutions||[])[i]).filter(Boolean);
     try{
       const r=await claude(
-        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n아래 JSON 형식으로만 출력하세요. 마크다운, 설명 텍스트 없이 JSON만 출력하세요.\n내용을 축약하지 마세요. 각 항목을 충분한 분량으로 구체적으로 작성하세요.",
-        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 형식으로 출력하라. 내용을 줄이거나 요약하지 말고 전체를 담아라.\n\n{"solutionTitle":"통합 솔루션명","overview":"핵심 개요 (구체적으로 작성)","components":"구성 요소 — 각 솔루션 통합 방식 (상세히)","tools":"사용 도구 전체 목록","timeline":"예상 기간 (통합 기준)","cost":"예상 비용 (통합 기준)","expectedEffect":"기대 효과 (수치 포함, 상세히)","implementationOrder":"구현 순서 단계별 (상세히)"}`,
-        4000
+        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 JSON 객체만 출력하세요. 설명 문장, 마크다운 코드블록 없이 { 로 시작하고 } 로 끝나는 JSON만 출력하세요.\n각 필드 값은 한 줄 문자열로 작성하고, 줄바꿈이 필요하면 \\n 이스케이프를 사용하세요.",
+        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 키를 그대로 사용해 출력하라:\n{"solutionTitle":"통합 솔루션 제목","overview":"솔루션 핵심 개요","components":"각 솔루션 통합 구성 요소 설명","tools":"사용 도구 전체 목록","timeline":"예상 기간","cost":"예상 비용","expectedEffect":"기대 효과 (수치 포함)","implementationOrder":"구현 단계별 순서"}`,
+        2000
       );
       const clean=r.replace(/```json|```/g,"").trim();
-      let parsed;
-      try{parsed=JSON.parse(clean);}
-      catch{console.error("합성 parse error. Raw:",r);alert("솔루션 합성 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setMergeL(false);return;}
+      let parsed=null;
+      try{parsed=JSON.parse(clean);}catch{}
+      if(!parsed){const m=clean.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
+      if(!parsed){console.error("합성 parse error. Raw:",r);alert("솔루션 합성 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setMergeL(false);return;}
       upd({mergedSolution:{title:parsed.solutionTitle||`통합 솔루션 (${chosen.length}개 합성)`,desc:parsed,components:chosen}});
     }catch(e){alert("합성 실패.");}
     setMergeL(false);
