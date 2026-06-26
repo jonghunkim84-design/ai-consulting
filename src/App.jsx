@@ -432,8 +432,8 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     const chosen=selected.map(i=>(cl.solutions||[])[i]).filter(Boolean);
     try{
       const r=await claude(
-        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 JSON 객체만 출력하세요. 설명 문장, 마크다운 코드블록 없이 { 로 시작하고 } 로 끝나는 JSON만 출력하세요.\n각 필드 값은 한 줄 문자열로 작성하고, 줄바꿈이 필요하면 \\n 이스케이프를 사용하세요.",
-        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 키를 그대로 사용해 출력하라:\n{"solutionTitle":"통합 솔루션 제목","overview":"솔루션 핵심 개요","components":"각 솔루션 통합 구성 요소 설명","tools":"사용 도구 전체 목록","timeline":"예상 기간","cost":"예상 비용","expectedEffect":"기대 효과 (수치 포함)","implementationOrder":"구현 단계별 순서"}`,
+        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 아래 JSON 형식으로만 출력하세요. 코드블록이나 설명 없이 { 로 시작 } 로 끝내세요.\n배열 항목은 각각 짧은 한 문장으로 작성하세요.",
+        `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 형식으로 출력하라. 각 배열 요소는 한 문장으로 작성하라.\n{"solutionTitle":"통합 솔루션 제목","overview":["개요 포인트1","개요 포인트2","개요 포인트3"],"components":["구성요소1","구성요소2","구성요소3"],"tools":["도구1","도구2","도구3"],"timeline":"예상 기간","cost":"예상 비용","expectedEffect":["기대효과1(수치)","기대효과2(수치)"],"implementationOrder":["1단계","2단계","3단계"]}`,
         2000
       );
       const clean=r.replace(/```json|```/g,"").trim();
@@ -505,34 +505,41 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
         typeof cl.mergedSolution.desc==="object"&&cl.mergedSolution.desc?(
           <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
             <div style={{background:C.tealBg,border:`1px solid ${C.tealLt}`,borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:11,fontWeight:600,color:C.teal,marginBottom:6}}>🎯 {cl.mergedSolution.title}</div>
-              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.overview}</p>
+              <div style={{fontSize:11,fontWeight:600,color:C.teal,marginBottom:8}}>🎯 {cl.mergedSolution.title}</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(Array.isArray(cl.mergedSolution.desc.overview)?cl.mergedSolution.desc.overview:[cl.mergedSolution.desc.overview]).filter(Boolean).map((t,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.teal}}>•</span><span>{t}</span></li>)}
+              </ul>
             </div>
             <div style={{background:C.blueBg,border:`1px solid ${C.blueLt}`,borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:11,fontWeight:600,color:C.blue,marginBottom:6}}>🔧 구성 요소</div>
-              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.components}</p>
+              <div style={{fontSize:11,fontWeight:600,color:C.blue,marginBottom:8}}>🔧 구성 요소</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(Array.isArray(cl.mergedSolution.desc.components)?cl.mergedSolution.desc.components:[cl.mergedSolution.desc.components]).filter(Boolean).map((t,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.blue}}>•</span><span>{t}</span></li>)}
+              </ul>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <div style={{background:C.grayBg,border:"1px solid #D9D7D0",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:6}}>⚙️ 사용 도구</div>
-                <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.tools}</p>
+                <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:8}}>⚙️ 사용 도구</div>
+                <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                  {(Array.isArray(cl.mergedSolution.desc.tools)?cl.mergedSolution.desc.tools:[cl.mergedSolution.desc.tools]).filter(Boolean).map((t,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:6,alignItems:"flex-start"}}><span style={{color:C.gray}}>•</span><span>{t}</span></li>)}
+                </ul>
               </div>
               <div style={{background:C.warnBg,border:"1px solid #F7CE8A",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{fontSize:11,fontWeight:600,color:C.warn,marginBottom:6}}>⏱ 예상 기간</div>
-                <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.timeline}</p>
+                <div style={{fontSize:11,fontWeight:600,color:C.warn,marginBottom:6}}>⏱ 기간 / 💰 비용</div>
+                <p style={{fontSize:13,color:"var(--color-text-primary)",margin:"0 0 4px"}}>{cl.mergedSolution.desc.timeline}</p>
+                <p style={{fontSize:13,color:"var(--color-text-primary)",margin:0}}>{cl.mergedSolution.desc.cost}</p>
               </div>
             </div>
-            <div style={{background:C.purpleBg,border:"1px solid #C5C1F5",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:11,fontWeight:600,color:C.purple,marginBottom:6}}>💰 예상 비용</div>
-              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.cost}</p>
-            </div>
             <div style={{background:"#EAF3DE",border:"1px solid #B8DBA8",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:11,fontWeight:600,color:C.success,marginBottom:6}}>💡 기대 효과</div>
-              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.expectedEffect}</p>
+              <div style={{fontSize:11,fontWeight:600,color:C.success,marginBottom:8}}>💡 기대 효과</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(Array.isArray(cl.mergedSolution.desc.expectedEffect)?cl.mergedSolution.desc.expectedEffect:[cl.mergedSolution.desc.expectedEffect]).filter(Boolean).map((t,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.success}}>•</span><span>{t}</span></li>)}
+              </ul>
             </div>
-            <div style={{background:C.grayBg,border:"1px solid #D9D7D0",borderRadius:8,padding:"12px 14px"}}>
-              <div style={{fontSize:11,fontWeight:600,color:C.gray,marginBottom:6}}>📅 구현 순서</div>
-              <p style={{fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,whiteSpace:"pre-line",margin:0}}>{cl.mergedSolution.desc.implementationOrder}</p>
+            <div style={{background:C.purpleBg,border:"1px solid #C5C1F5",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.purple,marginBottom:8}}>📅 구현 순서</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(Array.isArray(cl.mergedSolution.desc.implementationOrder)?cl.mergedSolution.desc.implementationOrder:[cl.mergedSolution.desc.implementationOrder]).filter(Boolean).map((t,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.purple,fontWeight:600,minWidth:20}}>{i+1}.</span><span>{t}</span></li>)}
+              </ul>
             </div>
           </div>
         ):(
