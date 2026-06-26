@@ -292,16 +292,34 @@ function ResearchPanel({cl,upd}){
       const researchStr=typeof cl.researchResult==="object"&&cl.researchResult
         ?`업종특성:${cl.researchResult.industryCharacteristics||""} / 트렌드:${cl.researchResult.recentTrends||""} / 예상PP:${(cl.researchResult.expectedPainPoints||[]).join(", ")}`
         :(cl.researchResult||"없음");
+      const ppStr=(cl.hypothesis||[]).join(", ")||researchStr;
       const r=await claude(
-        "소상공인 첫 미팅 인터뷰 질문지 작성.\n형식:\n[필수 질문 - 반드시 물어볼 것]\nQ1. (하루 일과)\nQ2. (시간/실수 낭비)\nQ3. (걱정/고민)\n\n[심화 질문 - 상황에 따라 선택]\nQ4. (업종 특화)\nQ5. (Pain Point 검증)\nQ6. (예산/의사결정)\n\n[현장 팁]\n• 이 고객에게 특히 주의할 점",
-        `상호:${cl.name} / 업종:${cl.industry}\n사전조사:${researchStr}\n직접수집:${direct||"없음"}\n가설PP:${(cl.hypothesis||[]).join(",")||"없음"}`
+        "당신은 AI 컨설팅 전문가입니다.\n소상공인 첫 미팅용 인터뷰 질문지를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
+        `업체명: ${cl.name}\n업종: ${cl.industry}\n예상 Pain Point: ${ppStr}\n직접수집: ${direct||"없음"}\n\n위 정보를 바탕으로 첫 미팅용 인터뷰 질문지를 아래 JSON 형식으로만 응답하세요. 각 질문은 1문장으로 간결하게 작성하세요.\n\n{"essentialQuestions":["필수 질문 1","필수 질문 2","필수 질문 3","필수 질문 4","필수 질문 5"],"deepDiveQuestions":["심화 질문 1","심화 질문 2","심화 질문 3","심화 질문 4","심화 질문 5"],"fieldTips":["현장 팁 1","현장 팁 2","현장 팁 3"]}`,
+        1500
       );
-      upd({interviewQ:r,directInfo:direct});
+      const clean=r.replace(/```json|```/g,"").trim();
+      let parsed;
+      try{parsed=JSON.parse(clean);}catch{alert("질문지를 생성하지 못했습니다. 다시 시도해 주세요.");setQL(false);return;}
+      upd({interviewQ:parsed,directInfo:direct});
     }catch(e){alert("생성 실패.");}
     setQL(false);
   };
 
-  const copy=()=>{navigator.clipboard.writeText(cl.interviewQ||"").then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});};
+  const copy=()=>{
+    const q=cl.interviewQ;
+    const text=typeof q==="object"&&q?[
+      "[ 필수 질문 ]",
+      ...(q.essentialQuestions?.map((s,i)=>`${i+1}. ${s}`)??[]),
+      "",
+      "[ 심화 질문 ]",
+      ...(q.deepDiveQuestions?.map((s,i)=>`${i+1}. ${s}`)??[]),
+      "",
+      "[ 현장 팁 ]",
+      ...(q.fieldTips?.map(t=>`• ${t}`)??[]),
+    ].join("\n"):(q||"");
+    navigator.clipboard.writeText(text).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  };
 
   return <>
     {/* ① AI 자동 조사 */}
@@ -370,7 +388,30 @@ function ResearchPanel({cl,upd}){
       <button className="btn-ai" onClick={qL?undefined:genQ} disabled={qL}>{qL?"⟳ 질문지 생성 중...":"✨ 인터뷰 질문지 자동 생성"}</button>
       {qL&&<AIBox loading={true} color={C.blue}/>}
       {cl.interviewQ&&!qL&&<>
-        <TA value={cl.interviewQ} onChange={v=>upd({interviewQ:v})} rows={14} style={{marginTop:10}}/>
+        {typeof cl.interviewQ==="object"?(
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:12}}>
+            <div style={{background:C.blueBg,border:`1px solid ${C.blueLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.blue,marginBottom:8}}>✅ 필수 질문</div>
+              <ol style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:6}}>
+                {(cl.interviewQ.essentialQuestions||[]).map((q,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.blue,fontWeight:600,minWidth:20}}>{i+1}.</span><span>{q}</span></li>)}
+              </ol>
+            </div>
+            <div style={{background:C.purpleBg,border:"1px solid #C5C1F5",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.purple,marginBottom:8}}>🔍 심화 질문</div>
+              <ol style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:6}}>
+                {(cl.interviewQ.deepDiveQuestions||[]).map((q,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.purple,fontWeight:600,minWidth:20}}>{i+1}.</span><span>{q}</span></li>)}
+              </ol>
+            </div>
+            <div style={{background:C.tealBg,border:`1px solid ${C.tealLt}`,borderRadius:8,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:600,color:C.teal,marginBottom:8}}>💡 현장 팁</div>
+              <ul style={{margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4}}>
+                {(cl.interviewQ.fieldTips||[]).map((tip,i)=><li key={i} style={{fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:C.teal,marginTop:2}}>•</span><span>{tip}</span></li>)}
+              </ul>
+            </div>
+          </div>
+        ):(
+          <TA value={cl.interviewQ} onChange={v=>upd({interviewQ:v})} rows={14} style={{marginTop:10}}/>
+        )}
         <div style={{display:"flex",gap:8,marginTop:8}}><Btn onClick={copy}>{copied?"✓ 복사됨":"📋 질문지 복사"}</Btn><Btn v="ghost" onClick={genQ} disabled={qL}>🔄 재생성</Btn></div>
       </>}
     </Panel>
