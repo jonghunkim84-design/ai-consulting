@@ -1864,6 +1864,16 @@ export default function App(){
               try{
                 const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
                 const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
+                const personality=active.personalityAnalysis?.result;
+                const personalityContext=personality?[
+                  `- 의사결정 성향: ${personality.axes?.map(a=>`${a.name} → ${a.score>50?a.right:a.left}`).join(', ')}`,
+                  `- 핵심 관심사: ${personality.topInterests?.join(', ')}`,
+                  `- 저항 가능성: ${personality.resistancePoints?.join(', ')}`,
+                  `- 제안 전략: ${personality.strategy?.proposalOrder}`,
+                  `- 강조 포인트: ${personality.strategy?.emphasize}`,
+                  `- 피해야 할 표현: ${personality.strategy?.avoid}`,
+                  `- 한줄 요약: ${personality.summary}`,
+                ].join('\n'):'(성향 분석 결과 없음 — 일반적인 제안서 형식으로 작성)';
                 const r=await claude(
                   `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 작성하세요.
 
@@ -1897,7 +1907,18 @@ export default function App(){
 
 [6. 기대 효과]
 • 정량적 효과 (수치 포함)
-• ROI 요약`,
+• ROI 요약
+
+[클라이언트 성향 분석]
+${personalityContext}
+
+위 성향 분석을 바탕으로 제안서 작성 시 아래를 반영하라:
+- 논리(T) 성향이 강하면: 수치·ROI·데이터 중심으로 작성
+- 감정(F) 성향이 강하면: 팀·관계·운영 편의 중심으로 작성
+- 결론우선(J) 성향이면: 기대효과를 제안서 앞부분에 배치
+- 옵션선호(P) 성향이면: 단계적 도입 옵션을 제시
+- 구체(S) 성향이면: 추상적 표현 없이 구체적 사례·수치 사용
+- 저항 포인트가 있으면: 해당 우려를 선제적으로 해소하는 문장 포함`,
                   `고객: ${active.name||"미입력"} / 업종: ${active.industry||"미입력"} / 규모: ${active.size||"미입력"}
 AI친숙도: ${active.aiLevel||"미입력"}
 핵심 Pain Point: ${validPPs.map((p,i)=>`#${i+1} ${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
@@ -1927,8 +1948,10 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       aiSet("dg_proposal_draft",{loading:true,result:null,error:false});
                       const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
                       const tools=(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.tool).filter(Boolean).join(", ")||"미정";
+                      const personality=active.personalityAnalysis?.result;
+                      const personalityContext=personality?`- 의사결정 성향: ${personality.axes?.map(a=>`${a.name} → ${a.score>50?a.right:a.left}`).join(', ')} / 핵심 관심사: ${personality.topInterests?.join(', ')} / 강조: ${personality.strategy?.emphasize} / 피해야 할 표현: ${personality.strategy?.avoid}`:'(성향 분석 결과 없음)';
                       try{
-                        const r=await claude("IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. 각 항목 3~5줄 이내, 전체 A4 2페이지 이내로 간결하게 작성. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.",
+                        const r=await claude(`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. 각 항목 3~5줄 이내, 전체 A4 2페이지 이내로 간결하게 작성. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.\n[클라이언트 성향]\n${personalityContext}`,
                           `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
                           2000
                         );
