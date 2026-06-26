@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, Fragment } from "react";
 import { supabase } from './supabase.js'
+import PersonalityAnalysis from './components/PersonalityAnalysis.jsx'
 
 const C={blue:"#185FA5",blueBg:"#E6F1FB",blueLt:"#B5D4F4",teal:"#0F6E56",tealBg:"#E1F5EE",tealLt:"#9FE1CB",purple:"#534AB7",purpleBg:"#EEEDFE",success:"#3B6D11",successBg:"#EAF3DE",warn:"#854F0B",warnBg:"#FAEEDA",danger:"#A32D2D",dangerBg:"#FCEBEB",gray:"#5F5E5A",grayBg:"#F1EFE8"};
 const INDUSTRIES=["카페/베이커리","식당/요식업","소매/유통","서비스업(미용/학원)","제조/가공업","기타"];
@@ -1766,6 +1767,7 @@ export default function App(){
             }}
           />
         </Panel>
+        <PersonalityAnalysis cl={active} upd={upd}/>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({step:1})}>← 이전</Btn><Btn v="blue" onClick={()=>next(3)}>{BTN_D3_NEXT}</Btn></div>
       </>}
 
