@@ -73,37 +73,11 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: '당신은 소상공인 인터뷰 전문 컨설턴트의 어시스턴트입니다.',
+        max_tokens: 1500,
+        system: '당신은 AI 컨설팅 전문가입니다.\n인터뷰 녹취록에서 고객 답변을 추출하여 JSON으로만 출력하세요.\n컨설턴트 발언은 제외하고 고객 답변만 정리하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.',
         messages: [{
           role: 'user',
-          content: `아래는 인터뷰 현장 음성을 텍스트로 변환한 내용입니다.
-
-[STT 원문]
-${whisperRawText}
-
-위 텍스트에서 인터뷰이(고객)의 답변 내용만 추출해 핵심 내용으로 정리하세요.
-
-규칙:
-- 인터뷰어(컨설턴트)의 질문 발화는 제외
-- 고객이 한 말만 포함
-- 추임새, 맞장구, 잡담, 의미 없는 반복은 제외
-- 핵심 내용만 간결하게 정제 (원문 그대로가 아닌 요약·정리)
-- 주제별로 단락을 나눠 출력 (빈 줄로 구분)
-- 한국어로 출력
-
-추가로, 정리한 고객 답변에서 아래 핵심 주제 3가지에 해당하는 내용을 찾아 JSON으로도 출력하세요.
-
-핵심 주제 기준:
-- Q1: "하루 일과" — 아침부터 마감까지 일과 흐름에 대한 고객 답변
-- Q2: "시간이 제일 많이 걸리는 일, 실수가 잦은 일" — 업무 비효율/실수에 대한 고객 답변
-- Q3: "자다가 걱정되는 일, 월말에 골치 아픈 일" — 걱정/스트레스/골치 아픈 업무에 대한 고객 답변
-
-출력 형식: 고객 답변 요약 먼저 출력하고, 구분선 "---" 이후 JSON 블록 출력.
----
-{"q1": "해당 주제 고객 답변 요약 또는 null", "q2": "...", "q3": "..."}
-
-고객 답변 요약과 JSON 외에 다른 설명은 붙이지 마세요.`
+          content: `아래는 인터뷰 녹취록 전문이다.\n컨설턴트 발언은 제외하고 고객 답변만 추출하여\n아래 3개 항목으로 분류해 JSON 형식으로만 응답하라.\n각 항목은 핵심 내용만 간결하게 bullet 형태로 정리하라.\n\n[녹취록]\n${whisperRawText}\n\n응답 JSON 형식:\n{"q1":"하루 일과 및 운영 흐름 관련 고객 답변 요약 (bullet 3~5개, 줄바꿈 구분)","q2":"시간이 많이 걸리거나 실수가 잦은 업무 관련 고객 답변 요약 (bullet 3~5개, 줄바꿈 구분)","q3":"걱정되는 일, 월말 골치 아픈 일 관련 고객 답변 요약 (bullet 3~5개, 줄바꿈 구분)"}\n\nbullet 형식 예시:\n"• 매일 아침 재고 수기 확인\\n• 직원 빠뜨리는 경우 많음\\n• 품절 발생 주 1~2회"`
         }]
       })
     })
@@ -112,25 +86,30 @@ ${whisperRawText}
     const claudeText = claudeData.content?.[0]?.text || ''
     console.log('STEP6 Claude done, response len:', claudeText.length)
 
-    const parts = claudeText.split('---')
-    const questions = (parts[0] || '').trim()
     let q1Match = null, q2Match = null, q3Match = null
+    let summaryText = whisperRawText
 
-    if (parts[1]) {
-      try {
-        const jsonStr = parts[1].replace(/```json|```/g, '').trim()
-        const parsed = JSON.parse(jsonStr)
-        q1Match = parsed.q1 && parsed.q1 !== 'null' ? parsed.q1 : null
-        q2Match = parsed.q2 && parsed.q2 !== 'null' ? parsed.q2 : null
-        q3Match = parsed.q3 && parsed.q3 !== 'null' ? parsed.q3 : null
-      } catch (e) {
-        console.log('STEP6 JSON parse error:', e.message)
-      }
+    try {
+      const clean = claudeText.replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(clean)
+      q1Match = parsed.q1 && parsed.q1 !== 'null' ? parsed.q1 : null
+      q2Match = parsed.q2 && parsed.q2 !== 'null' ? parsed.q2 : null
+      q3Match = parsed.q3 && parsed.q3 !== 'null' ? parsed.q3 : null
+      summaryText = [
+        '[ Q1: 하루 일과 ]', q1Match || '(해당 내용 없음)',
+        '',
+        '[ Q2: 시간/실수 업무 ]', q2Match || '(해당 내용 없음)',
+        '',
+        '[ Q3: 걱정/골치 아픈 일 ]', q3Match || '(해당 내용 없음)',
+      ].join('\n')
+    } catch (e) {
+      console.log('STEP6 JSON parse error:', e.message)
+      summaryText = claudeText || whisperRawText
     }
 
     return res.status(200).json({
       raw: whisperRawText,
-      summary: questions || whisperRawText,
+      summary: summaryText,
       q1Match,
       q2Match,
       q3Match,
