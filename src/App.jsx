@@ -554,6 +554,77 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
   </>;
 }
 
+// ── 제안서 초안 헬퍼 ──
+function proposalDraftToText(draft){
+  if(!draft)return"";
+  if(typeof draft==="string")return draft;
+  const lines=[];
+  if(draft.solution?.length){lines.push("[1. 제안 솔루션 (TO-BE)]");draft.solution.forEach(s=>lines.push(`• ${s}`));}
+  if(draft.scope){lines.push("\n[2. 구축 범위]");(draft.scope.in||[]).forEach(s=>lines.push(`• [In] ${s}`));(draft.scope.out||[]).forEach(s=>lines.push(`• [Out] ${s}`));}
+  if(draft.wbs?.length){lines.push("\n[3. 추진 일정 (WBS)]");draft.wbs.forEach(s=>lines.push(`• ${s}`));(draft.milestones||[]).forEach(s=>lines.push(`◆ ${s}`));}
+  if(draft.org){lines.push("\n[4. 추진 조직 및 역할]");(draft.org.vendor||[]).forEach(s=>lines.push(`• [제안사] ${s}`));(draft.org.client||[]).forEach(s=>lines.push(`• [고객사] ${s}`));}
+  if(draft.budget?.length){lines.push("\n[5. 사업비 (견적)]");draft.budget.forEach(s=>lines.push(`• ${s}`));}
+  if(draft.effect?.length){lines.push("\n[6. 기대 효과]");draft.effect.forEach(s=>lines.push(`• ${s}`));}
+  return lines.join("\n");
+}
+
+function ProposalDraftCards({draft,color}){
+  if(!draft||typeof draft==="string")return(
+    <div style={{background:"var(--color-background-primary)",borderRadius:8,padding:"12px 14px",fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap",color:"var(--color-text-secondary)"}}>
+      {draft||""}
+    </div>
+  );
+  const C2=color||"#14B8A6";
+  const cardStyle=(bg,border)=>({background:bg,border:`1px solid ${border}`,borderRadius:8,padding:"12px 14px"});
+  const hdrStyle=(c)=>({fontSize:11,fontWeight:600,color:c,marginBottom:8});
+  const listStyle={margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4};
+  const itemStyle=(c)=>({fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"});
+  const dot=(c,sym="•")=><span style={{color:c,flexShrink:0}}>{sym}</span>;
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
+      {draft.solution?.length>0&&<div style={cardStyle("#E6FAF8","#A7F3D0")}>
+        <div style={hdrStyle(C2)}>🎯 1. 제안 솔루션 (TO-BE)</div>
+        <ul style={listStyle}>{draft.solution.map((s,i)=><li key={i} style={itemStyle()}>{dot(C2)}<span>{s}</span></li>)}</ul>
+      </div>}
+      {draft.scope&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div style={cardStyle("#EFF6FF","#BFDBFE")}>
+          <div style={hdrStyle("#3B82F6")}>📦 2. 구축 범위 — In</div>
+          <ul style={listStyle}>{(draft.scope.in||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#3B82F6")}<span>{s}</span></li>)}</ul>
+        </div>
+        <div style={cardStyle("#FFF7ED","#FED7AA")}>
+          <div style={hdrStyle("#F97316")}>🚫 Out-of-Scope</div>
+          <ul style={listStyle}>{(draft.scope.out||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#F97316")}<span>{s}</span></li>)}</ul>
+        </div>
+      </div>}
+      {draft.wbs?.length>0&&<div style={cardStyle("#FEFCE8","#FDE68A")}>
+        <div style={hdrStyle("#D97706")}>📅 3. 추진 일정 (WBS)</div>
+        <ul style={listStyle}>
+          {draft.wbs.map((s,i)=><li key={i} style={itemStyle()}>{dot("#D97706","▸")}<span>{s}</span></li>)}
+          {(draft.milestones||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#D97706","◆")}<span style={{fontWeight:500}}>{s}</span></li>)}
+        </ul>
+      </div>}
+      {draft.org&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div style={cardStyle("#F5F3FF","#C5C1F5")}>
+          <div style={hdrStyle("#7C3AED")}>👤 4. 제안사 역할</div>
+          <ul style={listStyle}>{(draft.org.vendor||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#7C3AED")}<span>{s}</span></li>)}</ul>
+        </div>
+        <div style={cardStyle("#F0FDF4","#B8DBA8")}>
+          <div style={hdrStyle("#16A34A")}>🤝 고객사 협조</div>
+          <ul style={listStyle}>{(draft.org.client||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#16A34A")}<span>{s}</span></li>)}</ul>
+        </div>
+      </div>}
+      {draft.budget?.length>0&&<div style={cardStyle("#FFF1F2","#FECDD3")}>
+        <div style={hdrStyle("#E11D48")}>💰 5. 사업비 (견적)</div>
+        <ul style={listStyle}>{draft.budget.map((s,i)=><li key={i} style={itemStyle()}>{dot("#E11D48")}<span>{s}</span></li>)}</ul>
+      </div>}
+      {draft.effect?.length>0&&<div style={cardStyle("#F0FDF4","#B8DBA8")}>
+        <div style={hdrStyle("#16A34A")}>💡 6. 기대 효과</div>
+        <ul style={listStyle}>{draft.effect.map((s,i)=><li key={i} style={itemStyle()}>{dot("#16A34A")}<span>{s}</span></li>)}</ul>
+      </div>}
+    </div>
+  );
+}
+
 // ── 신규 기능 3: Agile PM (스프린트 보드 + 간트 + 번다운 + 리소스) ──
 const newTask=(sid)=>({id:Date.now()+Math.random(),sid,title:"",assignee:"컨설턴트(본인)",priority:"보통",status:"백로그",pts:3,dependencies:[],startDate:null,dueDate:null,manualDates:false,input:[],output:[],description:""});
 const newSprint=(n)=>({id:Date.now()+Math.random(),num:n,name:`Sprint ${n}`,goal:"",start:"",end:"",tasks:[]});
@@ -2004,50 +2075,27 @@ export default function App(){
                   `- 한줄 요약: ${personality.summary}`,
                 ].join('\n'):'(성향 분석 결과 없음 — 일반적인 제안서 형식으로 작성)';
                 const r=await claude(
-                  `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 작성하세요.
+                  `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 아래 JSON 형식으로만 출력하세요.
+코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 짧은 한 문장으로 작성하세요.
 
-⚠️ 분량 규칙 (반드시 준수):
-- 각 항목은 불릿 포인트 3~5줄 이내로 간결하게 작성
-- 전체 분량이 A4 2페이지를 넘지 않도록 작성
-- 불필요한 수식어·반복 설명 금지
-
-반드시 아래 6개 항목을 모두 포함하세요:
-
-[1. 제안 솔루션 (TO-BE)]
-• 시스템 개요 (1줄)
-• 주요 기능 3가지 이내
-• 사용 기술/도구
-
-[2. 구축 범위]
-• 포함 범위 (In-Scope) 핵심만
-• 제외 범위 (Out-of-Scope) 핵심만
-
-[3. 추진 일정 (WBS)]
-• 단계별 일정 요약 (착수~오픈)
-• 주요 마일스톤 2~3개
-
-[4. 추진 조직 및 역할]
-• 제안사 역할 요약
-• 고객사 협조 사항 요약
-
-[5. 사업비 (견적)]
-• 주요 비용 항목 및 금액
-• 유지보수 조건
-
-[6. 기대 효과]
-• 정량적 효과 (수치 포함)
-• ROI 요약
+{"solution":["시스템 개요(1줄)","주요 기능1","주요 기능2","주요 기능3","사용 기술/도구"],
+"scope":{"in":["포함 범위1","포함 범위2","포함 범위3"],"out":["제외 범위1","제외 범위2"]},
+"wbs":["1단계: 착수 (1주차)","2단계: 개발 (2~3주차)","3단계: 검수 (4주차)"],
+"milestones":["킥오프 미팅","MVP 완료","정식 오픈"],
+"org":{"vendor":["제안사 역할1","제안사 역할2"],"client":["고객사 협조1","고객사 협조2"]},
+"budget":["주요 비용 항목: XX만원","월 유지비: XX만원","유지보수 조건"],
+"effect":["정량 효과1 (수치)","정량 효과2 (수치)","ROI: X개월 내 투자 회수"]}
 
 [클라이언트 성향 분석]
 ${personalityContext}
 
-위 성향 분석을 바탕으로 제안서 작성 시 아래를 반영하라:
-- 논리(T) 성향이 강하면: 수치·ROI·데이터 중심으로 작성
-- 감정(F) 성향이 강하면: 팀·관계·운영 편의 중심으로 작성
-- 결론우선(J) 성향이면: 기대효과를 제안서 앞부분에 배치
-- 옵션선호(P) 성향이면: 단계적 도입 옵션을 제시
+성향 반영 규칙:
+- 논리(T) 성향이면: 수치·ROI·데이터 중심으로 작성
+- 감정(F) 성향이면: 팀·관계·운영 편의 중심으로 작성
+- 결론우선(J) 성향이면: effect 항목을 임팩트 순으로 정렬
+- 옵션선호(P) 성향이면: 단계적 도입 방안을 wbs에 반영
 - 구체(S) 성향이면: 추상적 표현 없이 구체적 사례·수치 사용
-- 저항 포인트가 있으면: 해당 우려를 선제적으로 해소하는 문장 포함`,
+- 저항 포인트가 있으면: scope.in에 우려 해소 문장 포함`,
                   `고객: ${active.name||"미입력"} / 업종: ${active.industry||"미입력"} / 규모: ${active.size||"미입력"}
 AI친숙도: ${active.aiLevel||"미입력"}
 핵심 Pain Point: ${validPPs.map((p,i)=>`#${i+1} ${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
@@ -2056,7 +2104,10 @@ AI친숙도: ${active.aiLevel||"미입력"}
 예산 범위: ${active.budget||"미정"} / 구축 기간: ${active.timeline||"미정"}`,
                   2000
                 );
-                upd({proposalDraft:r});
+                let parsed=null;
+                try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
+                if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
+                upd({proposalDraft:parsed||r});
                 aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
               }catch(e){
                 aiSet("dg_proposal_draft",{loading:false,result:null,error:true});
@@ -2069,10 +2120,10 @@ AI친숙도: ${active.aiLevel||"미입력"}
               aiGet("dg_proposal_draft").loading
                 ?<div style={{display:"flex",alignItems:"center",gap:8,padding:14,color:"var(--color-text-secondary)",fontSize:13,marginTop:10,background:"var(--color-background-secondary)",borderRadius:8}}>⟳ 6개 항목 제안서를 작성하고 있습니다...</div>
                 :<>
-                  <div style={{fontSize:12,color:C.teal,fontWeight:500,marginTop:10,marginBottom:6}}>✦ 제안서 초안 완성 — 내용을 확인하고 STEP 3으로 진행하세요</div>
-                  <TA value={active.proposalDraft||""} onChange={v=>upd({proposalDraft:v})} rows={20}/>
-                  <div style={{display:"flex",gap:8,marginTop:8}}>
-                    <Btn onClick={()=>{navigator.clipboard.writeText(active.proposalDraft||"");}}> 📋 복사</Btn>
+                  <div style={{fontSize:12,color:C.teal,fontWeight:500,marginTop:10,marginBottom:2}}>✦ 제안서 초안 완성 — 내용을 확인하고 STEP 3으로 진행하세요</div>
+                  <ProposalDraftCards draft={active.proposalDraft} color={C.teal}/>
+                  <div style={{display:"flex",gap:8,marginTop:10}}>
+                    <Btn onClick={()=>{navigator.clipboard.writeText(proposalDraftToText(active.proposalDraft));}}> 📋 복사</Btn>
                     <Btn v="ghost" onClick={async()=>{
                       aiSet("dg_proposal_draft",{loading:true,result:null,error:false});
                       const solDesc=(active.mergedSolution?.title)||(active.selectedSols||[]).map(i=>(active.solutions||[])[i]?.title).filter(Boolean).join(" + ")||"미선택";
@@ -2080,11 +2131,15 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       const personality=active.personalityAnalysis?.result;
                       const personalityContext=personality?`- 의사결정 성향: ${personality.axes?.map(a=>`${a.name} → ${a.score>50?a.right:a.left}`).join(', ')} / 핵심 관심사: ${personality.topInterests?.join(', ')} / 강조: ${personality.strategy?.emphasize} / 피해야 할 표현: ${personality.strategy?.avoid}`:'(성향 분석 결과 없음)';
                       try{
-                        const r=await claude(`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안. 각 항목 3~5줄 이내, 전체 A4 2페이지 이내로 간결하게 작성. [1.제안솔루션(TO-BE)] [2.구축범위] [3.추진일정WBS] [4.추진조직및역할] [5.사업비견적] [6.기대효과ROI] 6개 항목 모두 포함.\n[클라이언트 성향]\n${personalityContext}`,
+                        const r=await claude(
+                          `IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n[클라이언트 성향]\n${personalityContext}`,
                           `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
                           2000
                         );
-                        upd({proposalDraft:r});
+                        let parsed=null;
+                        try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
+                        if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
+                        upd({proposalDraft:parsed||r});
                         aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
                       }catch{aiSet("dg_proposal_draft",{loading:false,result:null,error:true});}
                     }} disabled={aiGet("dg_proposal_draft").loading}>🔄 재생성</Btn>
@@ -2120,9 +2175,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
               <div style={{fontSize:12,color:C.teal,marginBottom:8,fontWeight:500}}>
                 아래 제안서 내용을 참고해서 실현 가능성을 평가하세요.
               </div>
-              <div style={{background:"var(--color-background-primary)",borderRadius:8,padding:"12px 14px",fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap",maxHeight:200,overflowY:"auto",color:"var(--color-text-secondary)"}}>
-                {active.proposalDraft}
-              </div>
+              <ProposalDraftCards draft={active.proposalDraft} color={C.teal}/>
             </Panel>
           )}
           {!active.proposalDraft&&(
@@ -2174,7 +2227,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
               </div>
               <Btn v="teal" sm onClick={()=>runAI(aiKey,
                 "소상공인 AI 솔루션 실현 가능성 평가. 제안서 초안을 참고해서 아래 4가지를 간결하게:\n✅ 강점(1~2줄)\n⚠️ 리스크(1~2줄)\n💡 성공 조건(1줄)\n📌 권고(1줄)",
-                `솔루션:${sol.title}(${sol.type||""}) 도구:${sol.tool||""}\n기간:${sol.effort||""} 비용:${sol.cost||""}\n고객:${active.name} AI친숙도:${active.aiLevel}\n예산:${active.budget} 리스크메모:${active.riskNote||"없음"}\n\n[제안서 초안 참조]\n${(active.proposalDraft||"없음").substring(0,800)}`
+                `솔루션:${sol.title}(${sol.type||""}) 도구:${sol.tool||""}\n기간:${sol.effort||""} 비용:${sol.cost||""}\n고객:${active.name} AI친숙도:${active.aiLevel}\n예산:${active.budget} 리스크메모:${active.riskNote||"없음"}\n\n[제안서 초안 참조]\n${proposalDraftToText(active.proposalDraft||"없음").substring(0,800)}`
               )} disabled={aiGet(aiKey).loading}>
                 {aiGet(aiKey).loading?"⟳ 평가 중...":"🤖 AI 실현 가능성 평가"}
               </Btn>
@@ -2233,26 +2286,15 @@ AI친숙도: ${active.aiLevel||"미입력"}
                   }[k])).filter(Boolean);
                   try{
                     const r=await claude(
-                      `당신은 IT 컨설턴트입니다. 기존 제안서 초안에 권고 사항을 반영해서 제안서를 개선하세요.
-
-⚠️ 분량 규칙 (반드시 준수):
-- 각 항목은 불릿 포인트 3~5줄 이내로 간결하게 작성
-- 전체 분량이 A4 2페이지를 넘지 않도록 작성
-
-반드시 아래 6개 항목을 모두 포함하세요:
-[1. 제안 솔루션 (TO-BE)] 시스템 개요(1줄), 주요 기능 3가지 이내, 사용 기술
-[2. 구축 범위] In-Scope 핵심만, Out-of-Scope 핵심만
-[3. 추진 일정 (WBS)] 단계별 일정 요약, 마일스톤 2~3개
-[4. 추진 조직 및 역할] 역할 요약, 고객사 협조 사항 요약
-[5. 사업비 (견적)] 주요 비용 항목, 유지보수 조건
-[6. 기대 효과] 정량적 효과(수치 포함), ROI 요약`,
+                      `IT 컨설턴트. 기존 제안서 초안에 권고 사항을 반영해 개선한 뒤 아래 JSON 형식으로만 출력. 코드블록 없이 { 로 시작.
+{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1","범위2"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}`,
                       `고객:${active.name} 업종:${active.industry} 규모:${active.size}
 PP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
 솔루션:${solDesc} 도구:${tools}
 예산:${active.budget} 일정:${active.timeline}
 
 [기존 제안서 초안]
-${(active.proposalDraft||"없음").substring(0,600)}
+${proposalDraftToText(active.proposalDraft||"없음").substring(0,600)}
 
 [반영할 권고 사항]
 ${active.selectedRecommendations||"없음"}
@@ -2260,10 +2302,13 @@ ${active.selectedRecommendations||"없음"}
 [반영 항목]
 ${selectedOpts.join("\n")||"없음"}
 
-위 권고 사항과 반영 항목을 적극적으로 제안서에 녹여서 개선해주세요.`,
+위 권고 사항과 반영 항목을 적극적으로 JSON 각 섹션에 녹여서 개선해주세요.`,
                       2000
                     );
-                    upd({proposalDraft:r});
+                    let parsed=null;
+                    try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
+                    if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
+                    upd({proposalDraft:parsed||r});
                     aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
                   }catch{
                     aiSet("dg_proposal_revised",{loading:false,result:null,error:true});
@@ -2301,14 +2346,18 @@ ${selectedOpts.join("\n")||"없음"}
         <Panel title="최종 제안서 확인 & 편집" icon="📝">
           {active.proposalDraft
             ?<>
-              <div style={{fontSize:12,color:C.teal,marginBottom:8}}>
+              <div style={{fontSize:12,color:C.teal,marginBottom:6}}>
                 {aiGet("dg_proposal_revised").result==="완료"
                   ?"✦ 권고 사항이 반영된 개선 버전입니다."
                   :"✦ STEP 2에서 생성된 제안서 초안입니다."}
               </div>
-              <TA value={active.proposalDraft} onChange={v=>upd({proposalDraft:v})} rows={20}/>
+              <ProposalDraftCards draft={active.proposalDraft} color={C.teal}/>
+              <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid var(--color-border-secondary)"}}>
+                <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:6,fontWeight:500}}>✏️ 텍스트 편집 (클립보드 복사 전 수정 가능)</div>
+                <TA value={proposalDraftToText(active.proposalDraft)} onChange={v=>upd({proposalDraft:v})} rows={14}/>
+              </div>
               <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                <Btn onClick={()=>copyT(active.proposalDraft,"proposal_final")}>{copied==="proposal_final"?"✓ 복사됨":"📋 전체 복사"}</Btn>
+                <Btn onClick={()=>copyT(proposalDraftToText(active.proposalDraft),"proposal_final")}>{copied==="proposal_final"?"✓ 복사됨":"📋 전체 복사"}</Btn>
                 <Btn v="ghost" onClick={()=>upd({step:1})}>← STEP 2에서 재생성</Btn>
                 <Btn v="ghost" onClick={()=>upd({step:2})}>← STEP 3에서 권고 반영</Btn>
               </div>
@@ -2429,7 +2478,7 @@ ${selectedOpts.join("\n")||"없음"}
               ?(active.pm.sprints.map(s=>`${s.name}: ${(s.tasks||[]).map(t=>t.title).join(", ")}`).join("\n"))
               :"스프린트 정보 없음";
             const sys=`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.`;
-            const usr=`[확정 솔루션 제안서]\n${active.proposalDraft||"제안서 정보 없음"}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
+            const usr=`[확정 솔루션 제안서]\n${proposalDraftToText(active.proposalDraft)||"제안서 정보 없음"}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
             aiSet("b_rv",{loading:true,result:null,error:false});
             claude(sys,usr,4000).then(r=>aiSet("b_rv",{loading:false,result:r,error:false})).catch(()=>aiSet("b_rv",{loading:false,result:null,error:true}));
           }} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
