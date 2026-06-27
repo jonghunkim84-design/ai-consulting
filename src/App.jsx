@@ -554,6 +554,100 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
   </>;
 }
 
+// ── 실현 가능성 평가 결과 렌더러 ──
+function FeasibilityResultBox({loading,result,error,onRetry,color=C.teal}){
+  if(loading)return(
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:14,
+      color:"var(--color-text-secondary)",fontSize:13,marginTop:10,
+      background:"var(--color-background-secondary)",borderRadius:8}}>
+      ⟳ AI 평가 중...
+    </div>
+  );
+  if(error)return(
+    <div style={{borderLeft:`3px solid ${C.danger}`,background:C.dangerBg,
+      borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,
+      fontSize:13,color:C.danger}}>
+      ⚠ 분석 실패.{" "}
+      <button onClick={onRetry} style={{color:C.blue,background:"none",border:"none",
+        cursor:"pointer",fontSize:13,textDecoration:"underline"}}>다시 시도</button>
+    </div>
+  );
+  if(!result)return null;
+
+  const SECTIONS=[
+    {prefix:"✅",label:"강점",    bg:"#EAF3DE",border:"#C0DD97",hdrColor:"#3B6D11",dotColor:"#3B6D11"},
+    {prefix:"⚠️",label:"리스크",  bg:"#FAEEDA",border:"#F7CE8A",hdrColor:"#854F0B",dotColor:"#854F0B"},
+    {prefix:"💡",label:"성공 조건",bg:"#E6F1FB",border:"#B5D4F4",hdrColor:"#185FA5",dotColor:"#185FA5"},
+    {prefix:"📌",label:"권고",    bg:"#EEEDFE",border:"#C5C1F5",hdrColor:"#534AB7",dotColor:"#534AB7"},
+  ];
+
+  const parseResult=(text)=>{
+    const lines=text.split("\n").map(l=>l.trim()).filter(Boolean);
+    const sections=[];
+    let current=null;
+    lines.forEach(line=>{
+      if(/^-{2,}$/.test(line))return;
+      const matchedSec=SECTIONS.find(s=>
+        line.startsWith(s.prefix)||
+        line.replace(/\*\*/g,"").startsWith(s.prefix)||
+        (line.includes(s.label)&&(line.startsWith("#")||line.startsWith("**")||line.startsWith(s.prefix)))
+      );
+      if(matchedSec){
+        current={...matchedSec,lines:[]};
+        sections.push(current);
+        const afterHeader=line
+          .replace(/^#+\s*/,"").replace(/\*\*/g,"")
+          .replace(matchedSec.prefix,"").replace(matchedSec.label,"")
+          .replace(/^[\s:：\-–—]+/,"").trim();
+        if(afterHeader)current.lines.push(afterHeader);
+      }else if(current){
+        const cleaned=line.replace(/\*\*/g,"").replace(/^[\-•*]\s*/,"").trim();
+        if(cleaned)current.lines.push(cleaned);
+      }
+    });
+    return sections.length===0?null:sections;
+  };
+
+  const sections=parseResult(result);
+
+  if(!sections){
+    const cleaned=result.replace(/^#{1,3}\s*/gm,"").replace(/\*\*/g,"").replace(/^---+$/gm,"").trim();
+    return(
+      <div style={{borderLeft:`3px solid ${color}`,background:"var(--color-background-secondary)",
+        borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,
+        fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>
+        <div style={{fontSize:12,fontWeight:500,color,marginBottom:6}}>✦ AI 완료</div>
+        {cleaned}
+      </div>
+    );
+  }
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
+      {sections.map((sec,idx)=>(
+        <div key={idx} style={{background:sec.bg,border:`1px solid ${sec.border}`,borderRadius:8,padding:"11px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,
+            marginBottom:sec.lines.length>0?8:0,
+            paddingBottom:sec.lines.length>0?7:0,
+            borderBottom:sec.lines.length>0?`0.5px solid ${sec.border}`:"none"}}>
+            <span style={{fontSize:15}}>{sec.prefix}</span>
+            <span style={{fontSize:12,fontWeight:600,color:sec.hdrColor}}>{sec.label}</span>
+          </div>
+          {sec.lines.map((line,j)=>(
+            <div key={j} style={{display:"flex",gap:8,alignItems:"flex-start",
+              fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+              padding:"3px 0",
+              borderBottom:j<sec.lines.length-1?`0.5px solid ${sec.border}60`:"none"}}>
+              <span style={{color:sec.dotColor,flexShrink:0,marginTop:2,fontSize:10}}>●</span>
+              <span>{line}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── 제안서 초안 헬퍼 ──
 function proposalDraftToText(draft){
   if(!draft)return"";
@@ -2338,7 +2432,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
               )} disabled={aiGet(aiKey).loading}>
                 {aiGet(aiKey).loading?"⟳ 평가 중...":"🤖 AI 실현 가능성 평가"}
               </Btn>
-              <AIBox loading={aiGet(aiKey).loading} result={aiGet(aiKey).result} error={aiGet(aiKey).error} onRetry={()=>runAI(aiKey,"","")} color={C.teal}/>
+              <FeasibilityResultBox loading={aiGet(aiKey).loading} result={aiGet(aiKey).result} error={aiGet(aiKey).error} onRetry={()=>runAI(aiKey,"","")} color={C.teal}/>
             </Panel>;
           })}
 
