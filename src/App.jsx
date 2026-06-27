@@ -2308,7 +2308,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                 let parsed=null;
                 try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
                 if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                upd({proposalDraft:parsed||r});
+                upd({proposalDraft:parsed||null});
                 aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
               }catch(e){
                 aiSet("dg_proposal_draft",{loading:false,result:null,error:true});
@@ -2340,7 +2340,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                         let parsed=null;
                         try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
                         if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                        upd({proposalDraft:parsed||r});
+                        upd({proposalDraft:parsed||null});
                         aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
                       }catch{aiSet("dg_proposal_draft",{loading:false,result:null,error:true});}
                     }} disabled={aiGet("dg_proposal_draft").loading}>🔄 재생성</Btn>
@@ -2509,7 +2509,7 @@ ${selectedOpts.join("\n")||"없음"}
                     let parsed=null;
                     try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
                     if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                    upd({proposalDraft:parsed||r});
+                    upd({proposalDraft:parsed||null});
                     aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
                   }catch{
                     aiSet("dg_proposal_revised",{loading:false,result:null,error:true});
