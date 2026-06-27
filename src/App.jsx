@@ -569,58 +569,165 @@ function proposalDraftToText(draft){
 }
 
 function ProposalDraftCards({draft,color}){
-  if(!draft||typeof draft==="string")return(
-    <div style={{background:"var(--color-background-primary)",borderRadius:8,padding:"12px 14px",fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap",color:"var(--color-text-secondary)"}}>
-      {draft||""}
+  let parsed=draft;
+  if(typeof draft==="string"){
+    try{
+      const clean=draft.replace(/```json|```/g,"").trim();
+      parsed=JSON.parse(clean);
+    }catch{
+      return(
+        <div style={{background:"var(--color-background-primary)",borderRadius:8,padding:"12px 14px",
+          fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap",color:"var(--color-text-secondary)"}}>
+          {draft}
+        </div>
+      );
+    }
+  }
+  if(!parsed)return null;
+
+  const cardBase=(bg,border)=>({background:bg,border:`1px solid ${border}`,borderRadius:8,padding:"12px 14px"});
+
+  const sectionHeader=(num,icon,title,hdrColor)=>(
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,
+      paddingBottom:8,borderBottom:`0.5px solid ${hdrColor}30`}}>
+      <div style={{width:22,height:22,borderRadius:"50%",background:hdrColor,
+        color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:11,fontWeight:600,flexShrink:0}}>
+        {num}
+      </div>
+      <span style={{fontSize:12,fontWeight:600,color:hdrColor}}>{icon} {title}</span>
     </div>
   );
-  const C2=color||"#14B8A6";
-  const cardStyle=(bg,border)=>({background:bg,border:`1px solid ${border}`,borderRadius:8,padding:"12px 14px"});
-  const hdrStyle=(c)=>({fontSize:11,fontWeight:600,color:c,marginBottom:8});
-  const listStyle={margin:0,padding:0,listStyle:"none",display:"flex",flexDirection:"column",gap:4};
-  const itemStyle=(c)=>({fontSize:13,color:"var(--color-text-primary)",display:"flex",gap:8,alignItems:"flex-start"});
-  const dot=(c,sym="•")=><span style={{color:c,flexShrink:0}}>{sym}</span>;
+
+  const MS_COLORS=["#378ADD","#1D9E75","#D85A30"];
+
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:10}}>
-      {draft.solution?.length>0&&<div style={cardStyle("#E6FAF8","#A7F3D0")}>
-        <div style={hdrStyle(C2)}>🎯 1. 제안 솔루션 (TO-BE)</div>
-        <ul style={listStyle}>{draft.solution.map((s,i)=><li key={i} style={itemStyle()}>{dot(C2)}<span>{s}</span></li>)}</ul>
-      </div>}
-      {draft.scope&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div style={cardStyle("#EFF6FF","#BFDBFE")}>
-          <div style={hdrStyle("#3B82F6")}>📦 2. 구축 범위 — In</div>
-          <ul style={listStyle}>{(draft.scope.in||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#3B82F6")}<span>{s}</span></li>)}</ul>
+    <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
+
+      {parsed.solution?.length>0&&(
+        <div style={cardBase("#E6F1FB","#B5D4F4")}>
+          {sectionHeader(1,"🎯","제안 솔루션 (TO-BE)","#185FA5")}
+          {parsed.solution.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+              padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+              borderBottom:i<parsed.solution.length-1?"0.5px solid #B5D4F430":"none"}}>
+              <span style={{color:"#185FA5",flexShrink:0,fontWeight:i===0?600:400,marginTop:1}}>{i===0?"▶":"→"}</span>
+              <span style={{fontWeight:i===0?500:400}}>{s}</span>
+            </div>
+          ))}
         </div>
-        <div style={cardStyle("#FFF7ED","#FED7AA")}>
-          <div style={hdrStyle("#F97316")}>🚫 Out-of-Scope</div>
-          <ul style={listStyle}>{(draft.scope.out||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#F97316")}<span>{s}</span></li>)}</ul>
+      )}
+
+      {parsed.scope&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={cardBase("#EAF3DE","#C0DD97")}>
+            {sectionHeader(2,"📦","포함 (In-Scope)","#3B6D11")}
+            {(parsed.scope.in||[]).map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+                padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+                borderBottom:i<(parsed.scope.in||[]).length-1?"0.5px solid #C0DD9740":"none"}}>
+                <span style={{color:"#3B6D11",flexShrink:0,marginTop:1}}>✓</span>
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
+          <div style={cardBase("#FAECE7","#F5C4B3")}>
+            {sectionHeader(2,"🚫","제외 (Out-of-Scope)","#993C1D")}
+            {(parsed.scope.out||[]).map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+                padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+                borderBottom:i<(parsed.scope.out||[]).length-1?"0.5px solid #F5C4B340":"none"}}>
+                <span style={{color:"#993C1D",flexShrink:0,marginTop:1}}>✕</span>
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>}
-      {draft.wbs?.length>0&&<div style={cardStyle("#FEFCE8","#FDE68A")}>
-        <div style={hdrStyle("#D97706")}>📅 3. 추진 일정 (WBS)</div>
-        <ul style={listStyle}>
-          {draft.wbs.map((s,i)=><li key={i} style={itemStyle()}>{dot("#D97706","▸")}<span>{s}</span></li>)}
-          {(draft.milestones||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#D97706","◆")}<span style={{fontWeight:500}}>{s}</span></li>)}
-        </ul>
-      </div>}
-      {draft.org&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div style={cardStyle("#F5F3FF","#C5C1F5")}>
-          <div style={hdrStyle("#7C3AED")}>👤 4. 제안사 역할</div>
-          <ul style={listStyle}>{(draft.org.vendor||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#7C3AED")}<span>{s}</span></li>)}</ul>
+      )}
+
+      {parsed.wbs?.length>0&&(
+        <div style={cardBase("#FAEEDA","#F7CE8A")}>
+          {sectionHeader(3,"📅","추진 일정 WBS + 마일스톤","#854F0B")}
+          {parsed.wbs.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+              padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+              borderBottom:"0.5px solid #F7CE8A60"}}>
+              <span style={{color:"#854F0B",flexShrink:0,marginTop:1}}>▸</span>
+              <span>{s}</span>
+            </div>
+          ))}
+          {(parsed.milestones||[]).length>0&&(
+            <>
+              <div style={{fontSize:11,color:"#854F0B",fontWeight:600,marginTop:10,marginBottom:6,opacity:0.7}}>마일스톤</div>
+              {(parsed.milestones||[]).map((s,i)=>(
+                <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",
+                  padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+                  borderBottom:i<(parsed.milestones||[]).length-1?"0.5px solid #F7CE8A40":"none"}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,marginTop:5,
+                    background:MS_COLORS[i%MS_COLORS.length]}}/>
+                  <span style={{fontWeight:500}}>{s}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
-        <div style={cardStyle("#F0FDF4","#B8DBA8")}>
-          <div style={hdrStyle("#16A34A")}>🤝 고객사 협조</div>
-          <ul style={listStyle}>{(draft.org.client||[]).map((s,i)=><li key={i} style={itemStyle()}>{dot("#16A34A")}<span>{s}</span></li>)}</ul>
+      )}
+
+      {parsed.org&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={cardBase("#EEEDFE","#C5C1F5")}>
+            {sectionHeader(4,"🏢","제안사 역할","#534AB7")}
+            {(parsed.org.vendor||[]).map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+                padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+                borderBottom:i<(parsed.org.vendor||[]).length-1?"0.5px solid #C5C1F540":"none"}}>
+                <span style={{color:"#534AB7",flexShrink:0,marginTop:1}}>•</span>
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
+          <div style={cardBase("#E1F5EE","#9FE1CB")}>
+            {sectionHeader(4,"🤝","고객사 역할","#0F6E56")}
+            {(parsed.org.client||[]).map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+                padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+                borderBottom:i<(parsed.org.client||[]).length-1?"0.5px solid #9FE1CB40":"none"}}>
+                <span style={{color:"#0F6E56",flexShrink:0,marginTop:1}}>•</span>
+                <span>{s}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>}
-      {draft.budget?.length>0&&<div style={cardStyle("#FFF1F2","#FECDD3")}>
-        <div style={hdrStyle("#E11D48")}>💰 5. 사업비 (견적)</div>
-        <ul style={listStyle}>{draft.budget.map((s,i)=><li key={i} style={itemStyle()}>{dot("#E11D48")}<span>{s}</span></li>)}</ul>
-      </div>}
-      {draft.effect?.length>0&&<div style={cardStyle("#F0FDF4","#B8DBA8")}>
-        <div style={hdrStyle("#16A34A")}>💡 6. 기대 효과</div>
-        <ul style={listStyle}>{draft.effect.map((s,i)=><li key={i} style={itemStyle()}>{dot("#16A34A")}<span>{s}</span></li>)}</ul>
-      </div>}
+      )}
+
+      {parsed.budget?.length>0&&(
+        <div style={cardBase("#FAECE7","#F5C4B3")}>
+          {sectionHeader(5,"💰","사업비 (견적)","#993C1D")}
+          {parsed.budget.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+              padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+              borderBottom:i<parsed.budget.length-1?"0.5px solid #F5C4B340":"none"}}>
+              <span style={{color:"#993C1D",flexShrink:0,fontWeight:600,marginTop:1}}>₩</span>
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {parsed.effect?.length>0&&(
+        <div style={cardBase("#E1F5EE","#9FE1CB")}>
+          {sectionHeader(6,"💡","기대 효과 + ROI","#0F6E56")}
+          {parsed.effect.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",
+              padding:"4px 0",fontSize:13,color:"var(--color-text-primary)",lineHeight:1.7,
+              borderBottom:i<parsed.effect.length-1?"0.5px solid #9FE1CB40":"none"}}>
+              <span style={{color:"#1D9E75",flexShrink:0,marginTop:1}}>▶</span>
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }
