@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { system, user, max_tokens = 1200, model, messages } = req.body
+  const { system, user, max_tokens = 1200, model, messages, temperature } = req.body
   const actualMessages = messages || [{ role: 'user', content: user }]
   const actualModel = model || 'claude-sonnet-4-6'
 
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
         max_tokens,
         system,
         messages: actualMessages,
+        ...(temperature !== undefined && { temperature }),
       }),
     })
 

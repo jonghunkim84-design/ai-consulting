@@ -101,7 +101,7 @@ const CHATBOT_MANUAL={
 [Phase 1 Step 2 — 솔루션 설계]
 - 예산 범위 선택: "예산 범위" 드롭다운 클릭 후 항목 선택
 - 희망 일정 선택: "희망 일정" 드롭다운 클릭 후 항목 선택
-- AI 솔루션 생성: [✨ AI 솔루션 3개 자동 생성] 버튼 클릭 → 솔루션 카드 3개 자동 생성
+- AI 솔루션 생성: [✨ AI 솔루션 5개 자동 생성] 버튼 클릭 → 솔루션 카드 5개 자동 생성
 - 솔루션 선택: 솔루션 카드 클릭으로 선택/해제 (복수 선택 가능, 선택 시 테두리 강조)
 - 통합 합성: 2개 이상 선택 후 [🔀 선택 솔루션 통합 합성] 버튼 클릭 → 통합 솔루션 자동 생성
 - 제안서 초안 자동 생성: 솔루션 선택 후 [✨ 제안서 초안 자동 생성 (6개 항목)] 버튼 클릭 → 6개 항목 제안서 자동 작성
@@ -214,10 +214,10 @@ const PRIORITY=["긴급","높음","보통","낮음"];
 const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"},"진행중":{bg:"#E6F1FB",c:"#185FA5"},"완료":{bg:"#EAF3DE",c:"#3B6D11"},"보류":{bg:"#FAEEDA",c:"#854F0B"}};
 const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F0B"},"보통":{bg:"#E6F1FB",c:"#185FA5"},"낮음":{bg:"#F1EFE8",c:"#5F5E5A"}};
 
-async function claude(sys,usr,maxTok=1500,retries=2){
+async function claude(sys,usr,maxTok=1500,retries=2,temperature=0.3){
   for(let i=0;i<=retries;i++){
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}]})});
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}],temperature})});
       if(!r.ok){const d=await r.json();const msg=typeof d.error==="string"?d.error:(d.error?.message||JSON.stringify(d.error)||`HTTP ${r.status}`);throw new Error(msg);}
       const d=await r.json();
       const text=d.content?.[0]?.text||d.text||"";
@@ -228,6 +228,26 @@ async function claude(sys,usr,maxTok=1500,retries=2){
       await new Promise(res=>setTimeout(res,1000*(i+1)));
     }
   }
+}
+const QUALITY_GUIDE="[품질 기준]\n- 뭉뚱그린 설명 대신 구체적 수치·기간·도구명을 포함하라\n- 소상공인 사장님이 바로 이해할 수 있는 쉬운 표현을 쓰고 전문용어는 피하라\n- 주어진 예산·일정 범위를 벗어나는 비현실적인 제안은 하지 마라\n\n";
+
+function extractJSON(txt){
+  if(!txt)return null;
+  const clean=txt.replace(/```json|```/g,"").trim();
+  try{return JSON.parse(clean);}catch{}
+  const m=clean.match(/\{[\s\S]*\}/);
+  if(m){try{return JSON.parse(m[0]);}catch{}}
+  return null;
+}
+const JSON_RETRY_NOTE="\n\n[재시도 안내] 이전 응답이 유효한 JSON 형식이 아니었습니다. 다른 텍스트나 코드블록 없이 순수 JSON만 출력하세요.";
+async function claudeJSON(sys,usr,maxTok=1500,jsonRetries=1){
+  let raw="";
+  for(let i=0;i<=jsonRetries;i++){
+    raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE,maxTok);
+    const parsed=extractJSON(raw);
+    if(parsed)return parsed;
+  }
+  throw new Error("JSON 파싱 실패: "+raw.slice(0,200));
 }
 
 // ── UI 원자 컴포넌트 ──
@@ -272,16 +292,13 @@ function ResearchPanel({cl,upd}){
     if(!cl.name||!cl.industry){alert("고객명과 업종을 먼저 입력하세요.");return;}
     setSL(true);
     try{
-      const r=await claude(
-        "당신은 AI 컨설팅 전문가입니다.\n소상공인 고객 미팅 전 사전조사 결과를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
+      const parsed=await claudeJSON(
+        QUALITY_GUIDE+"당신은 AI 컨설팅 전문가입니다.\n소상공인 고객 미팅 전 사전조사 결과를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
         `업체명: ${cl.name}\n업종: ${cl.industry}\n\n위 업체에 대해 AI 컨설팅 미팅 전 사전조사를 수행하고 아래 JSON 형식으로만 응답하세요. 각 항목은 3줄 이내로 간결하게 작성하세요.\n\n{"industryCharacteristics":"이 업종의 핵심 특성과 운영 구조","recentTrends":"최근 1~2년 업종 트렌드와 시장 변화","expectedPainPoints":["예상 Pain Point 1","예상 Pain Point 2","예상 Pain Point 3"],"meetingTips":["첫 미팅 팁 1","첫 미팅 팁 2","첫 미팅 팁 3"],"keyQuestions":["핵심 질문 1","핵심 질문 2"]}`,
         1500
       );
-      const clean=r.replace(/```json|```/g,"").trim();
-      let parsed;
-      try{parsed=JSON.parse(clean);}catch{alert("사전조사 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setSL(false);return;}
       upd({researchResult:parsed,directInfo:direct});
-    }catch(e){alert("조사 실패. 다시 시도해 주세요.");}
+    }catch(e){alert("사전조사 결과를 불러오지 못했습니다. 다시 시도해 주세요.");}
     setSL(false);
   };
 
@@ -293,14 +310,11 @@ function ResearchPanel({cl,upd}){
         ?`업종특성:${cl.researchResult.industryCharacteristics||""} / 트렌드:${cl.researchResult.recentTrends||""} / 예상PP:${(cl.researchResult.expectedPainPoints||[]).join(", ")}`
         :(cl.researchResult||"없음");
       const ppStr=(cl.hypothesis||[]).join(", ")||researchStr;
-      const r=await claude(
-        "당신은 AI 컨설팅 전문가입니다.\n소상공인 첫 미팅용 인터뷰 질문지를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
+      const parsed=await claudeJSON(
+        QUALITY_GUIDE+"당신은 AI 컨설팅 전문가입니다.\n소상공인 첫 미팅용 인터뷰 질문지를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
         `업체명: ${cl.name}\n업종: ${cl.industry}\n예상 Pain Point: ${ppStr}\n직접수집: ${direct||"없음"}\n\n위 정보를 바탕으로 첫 미팅용 인터뷰 질문지를 아래 JSON 형식으로만 응답하세요. 각 질문은 1문장으로 간결하게 작성하세요.\n\n{"essentialQuestions":["필수 질문 1","필수 질문 2","필수 질문 3","필수 질문 4","필수 질문 5"],"deepDiveQuestions":["심화 질문 1","심화 질문 2","심화 질문 3","심화 질문 4","심화 질문 5"],"fieldTips":["현장 팁 1","현장 팁 2","현장 팁 3"]}`,
         1500
       );
-      const clean=r.replace(/```json|```/g,"").trim();
-      let parsed;
-      try{parsed=JSON.parse(clean);}catch{alert("질문지를 생성하지 못했습니다. 다시 시도해 주세요.");setQL(false);return;}
       upd({interviewQ:parsed,directInfo:direct});
     }catch(e){alert("생성 실패.");}
     setQL(false);
@@ -431,18 +445,13 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     setMergeL(true);
     const chosen=selected.map(i=>(cl.solutions||[])[i]).filter(Boolean);
     try{
-      const r=await claude(
-        "소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 아래 JSON 형식으로만 출력하세요. 코드블록이나 설명 없이 { 로 시작 } 로 끝내세요.\n배열 항목은 각각 짧은 한 문장으로 작성하세요.",
+      const parsed=await claudeJSON(
+        QUALITY_GUIDE+"소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 아래 JSON 형식으로만 출력하세요. 코드블록이나 설명 없이 { 로 시작 } 로 끝내세요.\n배열 항목은 각각 짧은 한 문장으로 작성하세요.",
         `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 형식으로 출력하라. 각 배열 요소는 한 문장으로 작성하라.\n{"solutionTitle":"통합 솔루션 제목","overview":["개요 포인트1","개요 포인트2","개요 포인트3"],"components":["구성요소1","구성요소2","구성요소3"],"tools":["도구1","도구2","도구3"],"timeline":"예상 기간","cost":"예상 비용","expectedEffect":["기대효과1(수치)","기대효과2(수치)"],"implementationOrder":["1단계","2단계","3단계"]}`,
         2000
       );
-      const clean=r.replace(/```json|```/g,"").trim();
-      let parsed=null;
-      try{parsed=JSON.parse(clean);}catch{}
-      if(!parsed){const m=clean.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-      if(!parsed){console.error("합성 parse error. Raw:",r);alert("솔루션 합성 결과를 불러오지 못했습니다. 다시 시도해 주세요.");setMergeL(false);return;}
       upd({mergedSolution:{title:parsed.solutionTitle||`통합 솔루션 (${chosen.length}개 합성)`,desc:parsed,components:chosen}});
-    }catch(e){alert("합성 실패.");}
+    }catch(e){console.error("합성 실패:",e);alert("솔루션 합성 결과를 불러오지 못했습니다. 다시 시도해 주세요.");}
     setMergeL(false);
   };
 
@@ -454,14 +463,14 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
       </div>
     </Panel>
 
-    <Panel title="AI 솔루션 자동 설계 (3안) — 복수 선택 가능" icon="⚙️">
+    <Panel title="AI 솔루션 자동 설계 (5안) — 복수 선택 가능" icon="⚙️">
       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:10}}>여러 개 선택 → 아래에서 하나의 통합 솔루션으로 합성됩니다.</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>{validPPs.map((p,i)=><Chip key={i} label={`#${i+1} ${p.title}`} color={C.teal} bg={C.tealBg}/>)}</div>
-      <button className="btn-ai" onClick={aiGet("dg_sol").loading||!validPPs.length?undefined:()=>runAI("dg_sol",
-        "소상공인 Pain Point용 AI 솔루션 3개. 순수 JSON만 출력.\n{\"solutions\":[{\"rank\":1,\"title\":\"명\",\"type\":\"유형\",\"desc\":\"설명1줄\",\"why\":\"이유1줄\",\"tool\":\"도구\",\"effort\":\"기간\",\"cost\":\"비용\"}]}",
-        `고객:${cl.name} 업종:${cl.industry} AI친숙도:${cl.aiLevel||""}\nPP:${validPPs.map(p=>`${p.title}(${p.type})`).join(",")}\n예산:${cl.budget||""} 일정:${cl.timeline||""}`
+      <button className="btn-ai" onClick={aiGet("dg_sol").loading||!validPPs.length?undefined:()=>runAIJson("dg_sol",
+        QUALITY_GUIDE+"소상공인 Pain Point용 AI 솔루션을 정확히 5개(rank 1~5) 생성하라. 4개 이하는 절대 불가하며 반드시 5개를 모두 채워야 한다. 순수 JSON만 출력.\n{\"solutions\":[{\"rank\":1,\"title\":\"명\",\"type\":\"유형\",\"desc\":\"설명1줄\",\"why\":\"이유1줄\",\"tool\":\"도구\",\"effort\":\"기간\",\"cost\":\"비용\"}]}",
+        `고객:${cl.name} 업종:${cl.industry} AI친숙도:${cl.aiLevel||""}\nPP:${validPPs.map(p=>`${p.title}(${p.type})`).join(",")}\n예산:${cl.budget||""} 일정:${cl.timeline||""}\n예산·의사결정메모:${cl.reconfirmNotes||"없음"} 2차방문추가요청기능:${cl.visitFindings||"없음"}`
       )} disabled={aiGet("dg_sol").loading||!validPPs.length}>
-        {aiGet("dg_sol").loading?"⟳ 설계 중...":"✨ AI 솔루션 3개 자동 생성"}
+        {aiGet("dg_sol").loading?"⟳ 설계 중...":"✨ AI 솔루션 5개 자동 생성"}
       </button>
       {aiGet("dg_sol").result&&!aiGet("dg_sol").error&&(()=>{
         let p=null;try{p=JSON.parse(aiGet("dg_sol").result.replace(/```json|```/g,"").trim());}catch{}
@@ -474,8 +483,8 @@ function SolutionPanel({cl,upd,aiGet,runAI}){
     {(cl.solutions||[]).length===0&&!aiGet("dg_sol").loading&&(
       <EmptyAIResult icon="⚡" message="AI 솔루션이 아직 생성되지 않았습니다" subMessage="Pain Point를 입력한 뒤 위 버튼으로 솔루션을 자동 생성하세요"/>
     )}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1rem"}}>
-      {(cl.solutions||[]).slice(0,3).map((sol,i)=>{
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+      {(cl.solutions||[]).slice(0,5).map((sol,i)=>{
         const isSel=selected.includes(i);
         return <div key={i} onClick={()=>toggle(i)} className={`solution-card${isSel?" selected":""}`}>
           {isSel&&<div style={{position:"absolute",top:-1,left:8,background:"var(--phase-diagnosis)",color:"#fff",fontSize:10,padding:"2px 8px",borderRadius:"0 0 6px 6px",fontWeight:500}}>✓ 선택 {selected.indexOf(i)+1}</div>}
@@ -1689,8 +1698,8 @@ const initClient=()=>({
   hypothesis:[],directInfo:"",researchResult:"",interviewQ:"",
   prepCheck:{},iceCheck:{},iceMemo:"",
   notes:{q1:"",q2:"",q3:"",extra:""},audioFileName:"",transcribing:false,transcript:"",
-  painPoints:[{title:"",type:"",impact:"",solution:""}],finalCheck:{},
-  reconfirmNotes:"",additionalPP:"",reconfirmCheck:{},
+  painPoints:[{title:"",type:"",impact:"",solution:""}],finalCheck:{},d_anRaw:"",
+  reconfirmNotes:"",additionalPP:"",visitFindings:"",reconfirmCheck:{},dgRcRaw:"",
   budget:"",timeline:"",
   solutions:[{title:"",type:"",desc:"",why:"",tool:"",effort:"",cost:""}],
   selectedSol:null,selectedSols:[],mergedSolution:null,
@@ -1763,7 +1772,7 @@ ${contextKey==="home"?"홈 화면":`Phase ${parseInt(contextKey)} Step ${context
 [시스템 매뉴얼]
 ${manualContext}`;
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}]})});
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}],temperature:0.2})});
       const d=await r.json();
       console.log("[Chatbot] API response:", d);
       const answer=d.text||d.content?.[0]?.text||d.error||"답변을 가져오지 못했습니다.";
@@ -1889,6 +1898,17 @@ export default function App(){
   const aiGet=k=>aiSt[k]||{loading:false,result:null,error:false};
   const aiSet=(k,p)=>setAiSt(a=>({...a,[k]:{...a[k],...p}}));
   const runAI=async(k,sys,usr)=>{aiSet(k,{loading:true,result:null,error:false});try{aiSet(k,{loading:false,result:await claude(sys,usr),error:false});}catch{aiSet(k,{loading:false,result:null,error:true});}};
+  const runAIJson=async(k,sys,usr,jsonRetries=1)=>{
+    aiSet(k,{loading:true,result:null,error:false});
+    let raw="";
+    try{
+      for(let i=0;i<=jsonRetries;i++){
+        raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE);
+        if(extractJSON(raw)){aiSet(k,{loading:false,result:raw,error:false});return;}
+      }
+      aiSet(k,{loading:false,result:null,error:true});
+    }catch{aiSet(k,{loading:false,result:null,error:true});}
+  };
 
   const addClient = async () => {
     const c=initClient();
@@ -2178,10 +2198,10 @@ export default function App(){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
             {[["고객",active.name],["업종",active.industry],["AI 친숙도",active.aiLevel],["녹음파일",active.audioFileName||"없음"]].map(([l,v])=><div key={l} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:2}}>{l}</div><div style={{fontSize:13,fontWeight:500}}>{v||"미입력"}</div></div>)}
           </div>
-          <button className="btn-ai" onClick={aiGet("d_an").loading?undefined:()=>runAI("d_an","소상공인 인터뷰 분석. 순수 JSON만 출력.\n{\"painPoints\":[{\"rank\":1,\"title\":\"제목\",\"type\":\"반복업무자동화|정보부족분석|고객응대자동화\",\"impact\":\"영향1줄\",\"solution\":\"솔루션방향1줄\"}],\"summary\":\"요약2줄\",\"nextAction\":\"권고1줄\"}",
+          <button className="btn-ai" onClick={aiGet("d_an").loading?undefined:()=>runAIJson("d_an",QUALITY_GUIDE+"소상공인 인터뷰 분석. 순수 JSON만 출력.\n{\"painPoints\":[{\"rank\":1,\"title\":\"제목\",\"type\":\"반복업무자동화|정보부족분석|고객응대자동화\",\"impact\":\"영향1줄\",\"solution\":\"솔루션방향1줄\"}],\"summary\":\"요약2줄\",\"nextAction\":\"권고1줄\"}",
             `고객:${active.name} 업종:${active.industry} AI친숙도:${active.aiLevel}\n가설:${(active.hypothesis||[]).join(",")}\nQ1:${active.notes.q1}\nQ2:${active.notes.q2}\nQ3:${active.notes.q3}\n추가:${active.notes.extra}\n${active.transcript?"[녹음 파일 변환 텍스트]\n"+active.transcript:""}`
           )} disabled={aiGet("d_an").loading}>{aiGet("d_an").loading?"⟳ 분석 중...":"✨ AI 분석 실행"}</button>
-          {(()=>{const a=aiGet("d_an");if(a.loading)return <AIBox loading={true} color={C.blue}/>;if(a.error)return <AIBox error={true} color={C.blue}/>;if(a.result){let p=null;try{p=JSON.parse(a.result.replace(/```json|```/g,"").trim());}catch{}if(p?.painPoints){if(active.painPoints.every(pp=>!pp.title))setTimeout(()=>upd({painPoints:p.painPoints.map(pp=>({title:pp.title||"",type:pp.type||"",impact:pp.impact||"",solution:pp.solution||""}))}),0);return <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:8}}>✦ AI 분석 완료</div>{p.summary&&<div style={{marginBottom:10,paddingBottom:10,borderBottom:"0.5px solid var(--color-border-tertiary)"}}>{p.summary}</div>}{p.painPoints.map((pp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{pp.rank} {pp.title} <Chip label={pp.type} color={C.blue} bg={C.blueBg}/></div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>영향: {pp.impact}</div><div style={{fontSize:12,color:C.success}}>→ {pp.solution}</div></div>)}{p.nextAction&&<div style={{fontSize:12,color:C.warn,marginTop:6}}>→ {p.nextAction}</div>}</div>;}return <AIBox loading={false} result={a.result} error={false} color={C.blue}/>;}return null;})()}
+          {(()=>{const a=aiGet("d_an");if(a.loading)return <AIBox loading={true} color={C.blue}/>;if(a.error)return <AIBox error={true} color={C.blue}/>;const raw=a.result||active.d_anRaw;if(raw){if(a.result&&active.d_anRaw!==a.result)setTimeout(()=>upd({d_anRaw:a.result}),0);let p=null;try{p=JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{}if(p?.painPoints){if(active.painPoints.every(pp=>!pp.title))setTimeout(()=>upd({painPoints:p.painPoints.map(pp=>({title:pp.title||"",type:pp.type||"",impact:pp.impact||"",solution:pp.solution||""}))}),0);return <div style={{borderLeft:`3px solid ${C.blue}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.blue,marginBottom:8}}>✦ AI 분석 완료</div>{p.summary&&<div style={{marginBottom:10,paddingBottom:10,borderBottom:"0.5px solid var(--color-border-tertiary)"}}>{p.summary}</div>}{p.painPoints.map((pp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{pp.rank} {pp.title} <Chip label={pp.type} color={C.blue} bg={C.blueBg}/></div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>영향: {pp.impact}</div><div style={{fontSize:12,color:C.success}}>→ {pp.solution}</div></div>)}{p.nextAction&&<div style={{fontSize:12,color:C.warn,marginTop:6}}>→ {p.nextAction}</div>}</div>;}return <AIBox loading={false} result={raw} error={false} color={C.blue}/>;}return null;})()}
         </Panel>
         <Panel title="Pain Point 편집" icon="📋">
           {(active.painPoints||[]).every(pp=>!pp.title)&&!aiGet("d_an").loading&&(
@@ -2229,8 +2249,10 @@ export default function App(){
         <Panel title="2차 미팅 재확인" icon="🔎">
           <FL c="추가 파악 내용" mt={0} opt/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
           <FL c="예산·의사결정 메모" opt/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
-          <Btn v="teal" onClick={()=>runAI("dg_rc","Discovery 결과 Diagnosis 재검토. 추가 확인 포인트 200자 이내.",`고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
-          <AIBox loading={aiGet("dg_rc").loading} result={aiGet("dg_rc").result} error={aiGet("dg_rc").error} color={C.teal}/>
+          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}",`고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
+          {(()=>{const a=aiGet("dg_rc");if(a.loading)return <AIBox loading={true} color={C.teal}/>;if(a.error)return <AIBox error={true} color={C.teal}/>;const raw=a.result||active.dgRcRaw;if(raw){if(a.result&&active.dgRcRaw!==a.result)setTimeout(()=>upd({dgRcRaw:a.result}),0);let p=null;try{p=JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{}if(!p){const m=raw.match(/\{[\s\S]*\}/);if(m){try{p=JSON.parse(m[0]);}catch{}}}if(p?.checkPoints){return <div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:8}}>✦ AI 추가 확인 포인트</div>{p.checkPoints.map((cp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{i+1} {cp.title}</div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>{cp.reason}</div></div>)}{p.summary&&<div style={{fontSize:12,color:C.success,marginTop:6}}>→ {p.summary}</div>}</div>;}return <AIBox loading={false} result={raw} error={false} color={C.teal}/>;}return null;})()}
+          <FL c="2차 방문 결과 — 사장님 추가 요청 기능" mt={16} opt/>
+          <TA value={active.visitFindings} onChange={v=>upd({visitFindings:v})} placeholder="2차 방문에서 사장님이 새로 요청한 기능/요구사항 (예: 재고관리도 자동화 원하심)" rows={3}/>
         </Panel>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"0.5rem"}}><Btn v="ghost" onClick={()=>upd({phase:0,step:4,status:"discovery"})}>{BTN_DG1_BACK}</Btn><Btn v="teal" onClick={()=>next(1)}>완료 →</Btn></div>
       </>}
@@ -2275,8 +2297,8 @@ export default function App(){
                   `- 피해야 할 표현: ${personality.strategy?.avoid}`,
                   `- 한줄 요약: ${personality.summary}`,
                 ].join('\n'):'(성향 분석 결과 없음 — 일반적인 제안서 형식으로 작성)';
-                const r=await claude(
-                  `당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 아래 JSON 형식으로만 출력하세요.
+                const parsed=await claudeJSON(
+                  QUALITY_GUIDE+`당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 아래 JSON 형식으로만 출력하세요.
 코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 짧은 한 문장으로 작성하세요.
 
 {"solution":["시스템 개요(1줄)","주요 기능1","주요 기능2","주요 기능3","사용 기술/도구"],
@@ -2305,10 +2327,6 @@ AI친숙도: ${active.aiLevel||"미입력"}
 예산 범위: ${active.budget||"미정"} / 구축 기간: ${active.timeline||"미정"}`,
                   2000
                 );
-                let parsed=null;
-                try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
-                if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                if(!parsed){aiSet("dg_proposal_draft",{loading:false,result:null,error:true});return;}
                 upd({proposalDraft:parsed});
                 aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
               }catch(e){
@@ -2333,15 +2351,11 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       const personality=active.personalityAnalysis?.result;
                       const personalityContext=personality?`- 의사결정 성향: ${personality.axes?.map(a=>`${a.name} → ${a.score>50?a.right:a.left}`).join(', ')} / 핵심 관심사: ${personality.topInterests?.join(', ')} / 강조: ${personality.strategy?.emphasize} / 피해야 할 표현: ${personality.strategy?.avoid}`:'(성향 분석 결과 없음)';
                       try{
-                        const r=await claude(
-                          `IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n[클라이언트 성향]\n${personalityContext}`,
+                        const parsed=await claudeJSON(
+                          QUALITY_GUIDE+`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n[클라이언트 성향]\n${personalityContext}`,
                           `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
                           2000
                         );
-                        let parsed=null;
-                        try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
-                        if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                        if(!parsed){aiSet("dg_proposal_draft",{loading:false,result:null,error:true});return;}
                         upd({proposalDraft:parsed});
                         aiSet("dg_proposal_draft",{loading:false,result:"완료",error:false});
                       }catch{aiSet("dg_proposal_draft",{loading:false,result:null,error:true});}
@@ -2488,9 +2502,17 @@ AI친숙도: ${active.aiLevel||"미입력"}
                     rec_effect:"성공 조건 → 기대 효과 ROI 반영",
                   }[k])).filter(Boolean);
                   try{
-                    const r=await claude(
-                      `IT 컨설턴트. 기존 제안서 초안에 권고 사항을 반영해 개선한 뒤 아래 JSON 형식으로만 출력. 코드블록 없이 { 로 시작.
-{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1","범위2"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}`,
+                    const parsed=await claudeJSON(
+                      QUALITY_GUIDE+`당신은 IT 컨설턴트입니다. 기존 제안서 초안에 권고 사항을 반영해 개선한 뒤 아래 JSON 형식으로만 출력하세요.
+코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 짧은 한 문장으로 작성하세요.
+
+{"solution":["시스템 개요(1줄)","주요 기능1","주요 기능2","주요 기능3","사용 기술/도구"],
+"scope":{"in":["포함 범위1","포함 범위2","포함 범위3"],"out":["제외 범위1","제외 범위2"]},
+"wbs":["1단계: 착수 (1주차)","2단계: 개발 (2~3주차)","3단계: 검수 (4주차)"],
+"milestones":["킥오프 미팅","MVP 완료","정식 오픈"],
+"org":{"vendor":["제안사 역할1","제안사 역할2"],"client":["고객사 협조1","고객사 협조2"]},
+"budget":["주요 비용 항목: XX만원","월 유지비: XX만원","유지보수 조건"],
+"effect":["정량 효과1 (수치)","정량 효과2 (수치)","ROI: X개월 내 투자 회수"]}`,
                       `고객:${active.name} 업종:${active.industry} 규모:${active.size}
 PP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
 솔루션:${solDesc} 도구:${tools}
@@ -2505,13 +2527,9 @@ ${active.selectedRecommendations||"없음"}
 [반영 항목]
 ${selectedOpts.join("\n")||"없음"}
 
-위 권고 사항과 반영 항목을 적극적으로 JSON 각 섹션에 녹여서 개선해주세요.`,
-                      2000
+위 권고 사항과 반영 항목을 JSON 각 섹션에 반영해서 개선하세요.`,
+                      3000
                     );
-                    let parsed=null;
-                    try{parsed=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{}
-                    if(!parsed){const m=r.match(/\{[\s\S]*\}/);if(m){try{parsed=JSON.parse(m[0]);}catch{}}}
-                    if(!parsed){aiSet("dg_proposal_revised",{loading:false,result:null,error:true});return;}
                     upd({proposalDraft:parsed});
                     aiSet("dg_proposal_revised",{loading:false,result:"완료",error:false});
                   }catch{
@@ -2590,7 +2608,7 @@ ${selectedOpts.join("\n")||"없음"}
         <Panel title="반론 대응 AI 도우미" icon="💬">
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{CL_DG5_OBJ.map(q=><Tag key={q} label={q} selected={active.objection===q} color={C.teal} bg={C.tealBg} brd={C.tealLt} onClick={()=>upd({objection:active.objection===q?"":q})}/>)}</div>
           <TA value={active.objection} onChange={v=>upd({objection:v})} placeholder="고객 반론 입력..." rows={2}/>
-          <Btn v="teal" onClick={()=>runAI("dg_ob","고객 반론 대응 답변 200자 이내.",`반론:${active.objection}\n솔루션:${chosenSol?.title}`)} disabled={aiGet("dg_ob").loading||!active.objection} style={{marginTop:10}}>{aiGet("dg_ob").loading?"⟳ 생성 중...":"🤖 AI 대응 답변"}</Btn>
+          <Btn v="teal" onClick={()=>runAI("dg_ob",QUALITY_GUIDE+"고객 반론 대응 답변 200자 이내.",`반론:${active.objection}\n솔루션:${chosenSol?.title}`)} disabled={aiGet("dg_ob").loading||!active.objection} style={{marginTop:10}}>{aiGet("dg_ob").loading?"⟳ 생성 중...":"🤖 AI 대응 답변"}</Btn>
           <AIBox loading={aiGet("dg_ob").loading} result={aiGet("dg_ob").result} error={aiGet("dg_ob").error} color={C.teal}/>
         </Panel>
         <Panel title="컨펌 체크리스트" icon="✅">
