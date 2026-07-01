@@ -1475,6 +1475,12 @@ function PMPanel({cl,upd}){
 의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
 각 태스크에 반드시 포함: input(시작에 필요한 자료·선행결과·접근권한, 1~3개), output(완료시 산출물, 1~3개), description(수행방법 한 문장)
 
+필드 작성 규칙:
+- title: 20자 이내 태스크명
+- goal: 15단어 이내 한 문장
+- description: 15단어 이내 한 문장(여러 절 연결 금지)
+- input/output: 각 항목 10자 이내 키워드 형태
+
 스프린트 일정 (반드시 준수):
 ${sprintScheduleStr}
 
@@ -2718,7 +2724,7 @@ ${selectedOpts.join("\n")||"없음"}
             const sprintPlan=(active.pm?.sprints||[]).length
               ?(active.pm.sprints.map(s=>`${s.name}: ${(s.tasks||[]).map(t=>t.title).join(", ")}`).join("\n"))
               :"스프린트 정보 없음";
-            const sys=QUALITY_GUIDE+`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.`;
+            const sys=QUALITY_GUIDE+`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.\n\n작성 규칙: 각 항목은 불릿 3~5개로 작성하고, 각 불릿은 20단어 이내 한 문장으로 작성. 긴 문단 형태로 서술하지 말 것.`;
             const usr=`[확정 솔루션 제안서]\n${proposalDraftToText(active.proposalDraft)||"제안서 정보 없음"}\n\n[사전조사]\n${researchSummary(active)}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
             aiSet("b_rv",{loading:true,result:null,error:false});
             claude(sys,usr,4000).then(r=>aiSet("b_rv",{loading:false,result:r,error:false})).catch(()=>aiSet("b_rv",{loading:false,result:null,error:true}));
@@ -2746,7 +2752,7 @@ ${selectedOpts.join("\n")||"없음"}
           {CL_B4.map(([t,s],i)=><ChkItem key={i} label={t} sub={s} checked={!!active.handoverCheck[i]} onChange={()=>updN("handoverCheck",{[i]:!active.handoverCheck[i]})}/>)}
         </Panel>
         <Panel title="케이스 스터디 기록" icon="📚">
-          <button className="btn-ai" onClick={aiGet("b_cs").loading?undefined:async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude(QUALITY_GUIDE+"AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\n사전조사:${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</button>
+          <button className="btn-ai" onClick={aiGet("b_cs").loading?undefined:async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude(QUALITY_GUIDE+"AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:\n각 항목은 20단어 이내 1~2문장으로 간결하게 작성.",`고객:${active.name} 업종:${active.industry}\n사전조사:${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</button>
           {active.caseStudy&&<><TA value={active.caseStudy} onChange={v=>upd({caseStudy:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.caseStudy,"cs")} style={{marginTop:8}}>{copied==="cs"?"✓ 복사됨":"📋 복사"}</Btn></>}
         </Panel>
         <Panel title="프로젝트 최종 완료" icon="🏆" style={{background:[0,1,2,3,4].every(i=>active.handoverCheck[i])?C.successBg:undefined}}>
