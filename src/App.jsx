@@ -457,7 +457,7 @@ function SolutionPanel({cl,upd,aiGet,runAI,runAIJson}){
     const chosen=selected.map(i=>(cl.solutions||[])[i]).filter(Boolean);
     try{
       const parsed=await claudeJSON(
-        QUALITY_GUIDE+"소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 아래 JSON 형식으로만 출력하세요. 코드블록이나 설명 없이 { 로 시작 } 로 끝내세요.\n배열 항목은 각각 짧은 한 문장으로 작성하세요.",
+        QUALITY_GUIDE+"소상공인 AI 솔루션 통합 합성 전문가입니다.\n반드시 아래 JSON 형식으로만 출력하세요. 코드블록이나 설명 없이 { 로 시작 } 로 끝내세요.\n배열 항목은 각각 15단어 이내 한 문장으로 작성하세요(여러 절 연결 금지).",
         `고객:${cl.name} 업종:${cl.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n선택솔루션:\n${chosen.map((s,i)=>`${i+1}.${s.title}(${s.type})-${s.desc}/도구:${s.tool}`).join("\n")}\n\n위 솔루션들을 통합 합성하여 아래 JSON 형식으로 출력하라. 각 배열 요소는 한 문장으로 작성하라.\n{"solutionTitle":"통합 솔루션 제목","overview":["개요 포인트1","개요 포인트2","개요 포인트3"],"components":["구성요소1","구성요소2","구성요소3"],"tools":["도구1","도구2","도구3"],"timeline":"예상 기간","cost":"예상 비용","expectedEffect":["기대효과1(수치)","기대효과2(수치)"],"implementationOrder":["1단계","2단계","3단계"]}`,
         2000
       );
@@ -478,7 +478,7 @@ function SolutionPanel({cl,upd,aiGet,runAI,runAIJson}){
       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginBottom:10}}>여러 개 선택 → 아래에서 하나의 통합 솔루션으로 합성됩니다.</div>
       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>{validPPs.map((p,i)=><Chip key={i} label={`#${i+1} ${p.title}`} color={C.teal} bg={C.tealBg}/>)}</div>
       <button className="btn-ai" onClick={aiGet("dg_sol").loading||!validPPs.length?undefined:()=>runAIJson("dg_sol",
-        QUALITY_GUIDE+"소상공인 Pain Point용 AI 솔루션을 정확히 5개(rank 1~5) 생성하라. 4개 이하는 절대 불가하며 반드시 5개를 모두 채워야 한다. 순수 JSON만 출력.\n{\"solutions\":[{\"rank\":1,\"title\":\"명\",\"type\":\"유형\",\"desc\":\"설명1줄\",\"why\":\"이유1줄\",\"tool\":\"도구\",\"effort\":\"기간\",\"cost\":\"비용\"}]}"+D_SOL_EXAMPLE,
+        QUALITY_GUIDE+"소상공인 Pain Point용 AI 솔루션을 정확히 5개(rank 1~5) 생성하라. 4개 이하는 절대 불가하며 반드시 5개를 모두 채워야 한다. 순수 JSON만 출력.\n{\"solutions\":[{\"rank\":1,\"title\":\"명\",\"type\":\"유형\",\"desc\":\"설명1줄\",\"why\":\"이유1줄\",\"tool\":\"도구\",\"effort\":\"기간\",\"cost\":\"비용\"}]}\n\n필드 작성 규칙(반드시 준수):\n- title: 20자 이내 솔루션명\n- desc: 핵심 기능 1개 중심, 20단어 이내 한 문장(여러 절 연결 금지)\n- why: 핵심 이유 1개만, 15단어 이내\n- tool: 실제 도구·서비스명만 명시 (설명 문장 금지)"+D_SOL_EXAMPLE,
         `고객:${cl.name} 업종:${cl.industry} AI친숙도:${cl.aiLevel||""}\n[사전조사] ${researchSummary(cl)}\nPP:${validPPs.map(p=>`${p.title}(${p.type})`).join(",")}\n예산:${cl.budget||""} 일정:${cl.timeline||""}\n예산·의사결정메모:${cl.reconfirmNotes||"없음"} 2차방문추가요청기능:${cl.visitFindings||"없음"}`
       )} disabled={aiGet("dg_sol").loading||!validPPs.length}>
         {aiGet("dg_sol").loading?"⟳ 설계 중...":"✨ AI 솔루션 5개 자동 생성"}
@@ -2264,7 +2264,7 @@ export default function App(){
         <Panel title="2차 미팅 재확인" icon="🔎">
           <FL c="추가 파악 내용" mt={0} opt/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
           <FL c="예산·의사결정 메모" opt/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
-          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}",`고객:${active.name} 업종:${active.industry}\n[사전조사] ${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
+          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}\n필드 작성 규칙: title은 15자 이내 질문 주제, reason은 15단어 이내 한 문장",`고객:${active.name} 업종:${active.industry}\n[사전조사] ${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
           {(()=>{const a=aiGet("dg_rc");if(a.loading)return <AIBox loading={true} color={C.teal}/>;if(a.error)return <AIBox error={true} color={C.teal}/>;const raw=a.result||active.dgRcRaw;if(raw){if(a.result&&active.dgRcRaw!==a.result)setTimeout(()=>upd({dgRcRaw:a.result}),0);let p=null;try{p=JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{}if(!p){const m=raw.match(/\{[\s\S]*\}/);if(m){try{p=JSON.parse(m[0]);}catch{}}}if(p?.checkPoints){return <div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:8}}>✦ AI 추가 확인 포인트</div>{p.checkPoints.map((cp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{i+1} {cp.title}</div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>{cp.reason}</div></div>)}{p.summary&&<div style={{fontSize:12,color:C.success,marginTop:6}}>→ {p.summary}</div>}</div>;}return <AIBox loading={false} result={raw} error={false} color={C.teal}/>;}return null;})()}
           <FL c="2차 방문 결과 — 사장님 추가 요청 기능" mt={16} opt/>
           <TA value={active.visitFindings} onChange={v=>upd({visitFindings:v})} placeholder="2차 방문에서 사장님이 새로 요청한 기능/요구사항 (예: 재고관리도 자동화 원하심)" rows={3}/>
@@ -2314,7 +2314,7 @@ export default function App(){
                 ].join('\n'):'(성향 분석 결과 없음 — 일반적인 제안서 형식으로 작성)';
                 const parsed=await claudeJSON(
                   QUALITY_GUIDE+`당신은 IT 컨설턴트입니다. 소상공인 고객을 위한 AI 솔루션 제안서 초안을 아래 JSON 형식으로만 출력하세요.
-코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 짧은 한 문장으로 작성하세요.
+코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 15단어 이내 한 문장으로 작성하세요(여러 절 연결 금지).
 
 {"solution":["시스템 개요(1줄)","주요 기능1","주요 기능2","주요 기능3","사용 기술/도구"],
 "scope":{"in":["포함 범위1","포함 범위2","포함 범위3"],"out":["제외 범위1","제외 범위2"]},
@@ -2368,7 +2368,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       const personalityContext=personality?`- 의사결정 성향: ${personality.axes?.map(a=>`${a.name} → ${a.score>50?a.right:a.left}`).join(', ')} / 핵심 관심사: ${personality.topInterests?.join(', ')} / 강조: ${personality.strategy?.emphasize} / 피해야 할 표현: ${personality.strategy?.avoid}`:'(성향 분석 결과 없음)';
                       try{
                         const parsed=await claudeJSON(
-                          QUALITY_GUIDE+`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n[클라이언트 성향]\n${personalityContext}`,
+                          QUALITY_GUIDE+`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n배열 항목은 각각 15단어 이내 한 문장으로 작성.\n[클라이언트 성향]\n${personalityContext}`,
                           `고객:${active.name} 업종:${active.industry} 사전조사:${researchSummary(active)} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
                           2000
                         );
@@ -2520,7 +2520,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                   try{
                     const parsed=await claudeJSON(
                       QUALITY_GUIDE+`당신은 IT 컨설턴트입니다. 기존 제안서 초안에 권고 사항을 반영해 개선한 뒤 아래 JSON 형식으로만 출력하세요.
-코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 짧은 한 문장으로 작성하세요.
+코드블록(\`\`\`)이나 설명 없이 { 로 시작 } 로 끝내세요. 배열 항목은 각각 15단어 이내 한 문장으로 작성하세요(여러 절 연결 금지).
 
 {"solution":["시스템 개요(1줄)","주요 기능1","주요 기능2","주요 기능3","사용 기술/도구"],
 "scope":{"in":["포함 범위1","포함 범위2","포함 범위3"],"out":["제외 범위1","제외 범위2"]},
