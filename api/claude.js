@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
   const { system, user, max_tokens = 1200, model, messages, temperature } = req.body
   const actualMessages = messages || [{ role: 'user', content: user }]
-  const actualModel = model || 'claude-sonnet-4-6'
+  const actualModel = model || 'claude-sonnet-5'
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
