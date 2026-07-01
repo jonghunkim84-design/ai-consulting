@@ -217,7 +217,9 @@ const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F
 async function claude(sys,usr,maxTok=1500,retries=2,temperature=0.3,model="claude-sonnet-5"){
   for(let i=0;i<=retries;i++){
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}],temperature})});
+      const body={model,max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}]};
+      if(model!=="claude-sonnet-5")body.temperature=temperature;
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       if(!r.ok){const d=await r.json();const msg=typeof d.error==="string"?d.error:(d.error?.message||JSON.stringify(d.error)||`HTTP ${r.status}`);throw new Error(msg);}
       const d=await r.json();
       const text=d.content?.[0]?.text||d.text||"";
