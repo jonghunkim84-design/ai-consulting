@@ -214,10 +214,10 @@ const PRIORITY=["긴급","높음","보통","낮음"];
 const STATUS_COLOR={"백로그":{bg:"var(--color-background-secondary)",c:"var(--color-text-secondary)"},"진행중":{bg:"#E6F1FB",c:"#185FA5"},"완료":{bg:"#EAF3DE",c:"#3B6D11"},"보류":{bg:"#FAEEDA",c:"#854F0B"}};
 const PRI_C={"긴급":{bg:"#FCEBEB",c:"#A32D2D"},"높음":{bg:"#FAEEDA",c:"#854F0B"},"보통":{bg:"#E6F1FB",c:"#185FA5"},"낮음":{bg:"#F1EFE8",c:"#5F5E5A"}};
 
-async function claude(sys,usr,maxTok=1500,retries=2,temperature=0.3){
+async function claude(sys,usr,maxTok=1500,retries=2,temperature=0.3,model="claude-sonnet-5"){
   for(let i=0;i<=retries;i++){
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}],temperature})});
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,max_tokens:maxTok,system:sys,messages:[{role:"user",content:usr}],temperature})});
       if(!r.ok){const d=await r.json();const msg=typeof d.error==="string"?d.error:(d.error?.message||JSON.stringify(d.error)||`HTTP ${r.status}`);throw new Error(msg);}
       const d=await r.json();
       const text=d.content?.[0]?.text||d.text||"";
@@ -251,10 +251,10 @@ function extractJSON(txt){
   return null;
 }
 const JSON_RETRY_NOTE="\n\n[재시도 안내] 이전 응답이 유효한 JSON 형식이 아니었습니다. 다른 텍스트나 코드블록 없이 순수 JSON만 출력하세요.";
-async function claudeJSON(sys,usr,maxTok=1500,jsonRetries=1){
+async function claudeJSON(sys,usr,maxTok=1500,jsonRetries=1,model="claude-sonnet-5"){
   let raw="";
   for(let i=0;i<=jsonRetries;i++){
-    raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE,maxTok);
+    raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE,maxTok,2,0.3,model);
     const parsed=extractJSON(raw);
     if(parsed)return parsed;
   }
@@ -324,7 +324,7 @@ function ResearchPanel({cl,upd}){
       const parsed=await claudeJSON(
         QUALITY_GUIDE+"당신은 AI 컨설팅 전문가입니다.\n소상공인 첫 미팅용 인터뷰 질문지를 JSON으로만 출력하세요.\n다른 텍스트, 설명, 마크다운 없이 JSON만 출력하세요.",
         `업체명: ${cl.name}\n업종: ${cl.industry}\n예상 Pain Point: ${ppStr}\n직접수집: ${direct||"없음"}\n\n위 정보를 바탕으로 첫 미팅용 인터뷰 질문지를 아래 JSON 형식으로만 응답하세요. 각 질문은 1문장으로 간결하게 작성하세요.\n\n{"essentialQuestions":["필수 질문 1","필수 질문 2","필수 질문 3","필수 질문 4","필수 질문 5"],"deepDiveQuestions":["심화 질문 1","심화 질문 2","심화 질문 3","심화 질문 4","심화 질문 5"],"fieldTips":["현장 팁 1","현장 팁 2","현장 팁 3"]}`,
-        1500
+        1500,1,"claude-haiku-4-5-20251001"
       );
       upd({interviewQ:parsed,directInfo:direct});
     }catch(e){alert("생성 실패.");}
@@ -1787,7 +1787,7 @@ ${contextKey==="home"?"홈 화면":`Phase ${parseInt(contextKey)} Step ${context
 [시스템 매뉴얼]
 ${manualContext}`;
     try{
-      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}],temperature:0.2})});
+      const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:sys,messages:[...recent,{role:"user",content:msg}],temperature:0.2})});
       const d=await r.json();
       console.log("[Chatbot] API response:", d);
       const answer=d.text||d.content?.[0]?.text||d.error||"답변을 가져오지 못했습니다.";
@@ -1912,13 +1912,13 @@ export default function App(){
   const updN=(k,p)=>setClients(cs=>cs.map(c=>c.id===activeId?{...c,[k]:{...c[k],...p}}:c));
   const aiGet=k=>aiSt[k]||{loading:false,result:null,error:false};
   const aiSet=(k,p)=>setAiSt(a=>({...a,[k]:{...a[k],...p}}));
-  const runAI=async(k,sys,usr)=>{aiSet(k,{loading:true,result:null,error:false});try{aiSet(k,{loading:false,result:await claude(sys,usr),error:false});}catch{aiSet(k,{loading:false,result:null,error:true});}};
-  const runAIJson=async(k,sys,usr,jsonRetries=1)=>{
+  const runAI=async(k,sys,usr,model="claude-sonnet-5")=>{aiSet(k,{loading:true,result:null,error:false});try{aiSet(k,{loading:false,result:await claude(sys,usr,1500,2,0.3,model),error:false});}catch{aiSet(k,{loading:false,result:null,error:true});}};
+  const runAIJson=async(k,sys,usr,jsonRetries=1,model="claude-sonnet-5")=>{
     aiSet(k,{loading:true,result:null,error:false});
     let raw="";
     try{
       for(let i=0;i<=jsonRetries;i++){
-        raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE);
+        raw=await claude(sys,i===0?usr:usr+JSON_RETRY_NOTE,1500,2,0.3,model);
         if(extractJSON(raw)){aiSet(k,{loading:false,result:raw,error:false});return;}
       }
       aiSet(k,{loading:false,result:null,error:true});
@@ -2264,7 +2264,7 @@ export default function App(){
         <Panel title="2차 미팅 재확인" icon="🔎">
           <FL c="추가 파악 내용" mt={0} opt/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
           <FL c="예산·의사결정 메모" opt/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
-          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}\n필드 작성 규칙: title은 15자 이내 질문 주제, reason은 15단어 이내 한 문장",`고객:${active.name} 업종:${active.industry}\n[사전조사] ${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
+          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}\n필드 작성 규칙: title은 15자 이내 질문 주제, reason은 15단어 이내 한 문장",`고객:${active.name} 업종:${active.industry}\n[사전조사] ${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`,1,"claude-haiku-4-5-20251001")} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
           {(()=>{const a=aiGet("dg_rc");if(a.loading)return <AIBox loading={true} color={C.teal}/>;if(a.error)return <AIBox error={true} color={C.teal}/>;const raw=a.result||active.dgRcRaw;if(raw){if(a.result&&active.dgRcRaw!==a.result)setTimeout(()=>upd({dgRcRaw:a.result}),0);let p=null;try{p=JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{}if(!p){const m=raw.match(/\{[\s\S]*\}/);if(m){try{p=JSON.parse(m[0]);}catch{}}}if(p?.checkPoints){return <div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:8}}>✦ AI 추가 확인 포인트</div>{p.checkPoints.map((cp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{i+1} {cp.title}</div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>{cp.reason}</div></div>)}{p.summary&&<div style={{fontSize:12,color:C.success,marginTop:6}}>→ {p.summary}</div>}</div>;}return <AIBox loading={false} result={raw} error={false} color={C.teal}/>;}return null;})()}
           <FL c="2차 방문 결과 — 사장님 추가 요청 기능" mt={16} opt/>
           <TA value={active.visitFindings} onChange={v=>upd({visitFindings:v})} placeholder="2차 방문에서 사장님이 새로 요청한 기능/요구사항 (예: 재고관리도 자동화 원하심)" rows={3}/>
@@ -2625,7 +2625,7 @@ ${selectedOpts.join("\n")||"없음"}
         <Panel title="반론 대응 AI 도우미" icon="💬">
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>{CL_DG5_OBJ.map(q=><Tag key={q} label={q} selected={active.objection===q} color={C.teal} bg={C.tealBg} brd={C.tealLt} onClick={()=>upd({objection:active.objection===q?"":q})}/>)}</div>
           <TA value={active.objection} onChange={v=>upd({objection:v})} placeholder="고객 반론 입력..." rows={2}/>
-          <Btn v="teal" onClick={()=>runAI("dg_ob",QUALITY_GUIDE+"고객 반론 대응 답변 200자 이내.",`반론:${active.objection}\n솔루션:${chosenSol?.title}`)} disabled={aiGet("dg_ob").loading||!active.objection} style={{marginTop:10}}>{aiGet("dg_ob").loading?"⟳ 생성 중...":"🤖 AI 대응 답변"}</Btn>
+          <Btn v="teal" onClick={()=>runAI("dg_ob",QUALITY_GUIDE+"고객 반론 대응 답변 200자 이내.",`반론:${active.objection}\n솔루션:${chosenSol?.title}`,"claude-haiku-4-5-20251001")} disabled={aiGet("dg_ob").loading||!active.objection} style={{marginTop:10}}>{aiGet("dg_ob").loading?"⟳ 생성 중...":"🤖 AI 대응 답변"}</Btn>
           <AIBox loading={aiGet("dg_ob").loading} result={aiGet("dg_ob").result} error={aiGet("dg_ob").error} color={C.teal}/>
         </Panel>
         <Panel title="컨펌 체크리스트" icon="✅">
