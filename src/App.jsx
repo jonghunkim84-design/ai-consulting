@@ -444,7 +444,7 @@ function ResearchPanel({cl,upd}){
 }
 
 // ── 신규 기능 2: 솔루션 다중 선택 + 통합 합성 ──
-function SolutionPanel({cl,upd,aiGet,runAI}){
+function SolutionPanel({cl,upd,aiGet,runAI,runAIJson}){
   const [mergeL,setMergeL]=useState(false);
   const validPPs=(cl.painPoints||[]).filter(p=>p.title);
   const selected=cl.selectedSols||[];
@@ -2273,7 +2273,7 @@ export default function App(){
         <InfoBanner phase="Diagnosis" step="STEP 2" color={C.teal} bg={C.tealBg}>
           솔루션 선택 → 제안서 초안 자동 생성 → STEP 3 실현 가능성 평가 순서로 진행하세요.
         </InfoBanner>
-        <SolutionPanel cl={active} upd={upd} aiGet={aiGet} runAI={runAI}/>
+        <SolutionPanel cl={active} upd={upd} aiGet={aiGet} runAI={runAI} runAIJson={runAIJson}/>
 
         {/* 제안서 초안 자동 생성 — STEP 3 실현 가능성 평가 전에 필요 */}
         {(active.selectedSols||[]).length>0&&<>
