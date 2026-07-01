@@ -1418,33 +1418,7 @@ function PMPanel({cl,upd}){
       });
       const sprintScheduleStr=preSprintSchedules.map(s=>`- ${s.name}: ${s.startDate} ~ ${s.endDate}`).join("\n");
 
-      const r=await claude(
-        `당신은 Agile PM 전문가입니다. 소상공인 AI 솔루션 개발 프로젝트 플랜을 생성하세요.
-반드시 순수 JSON만 출력 (마크다운 백틱 없이, 설명 없이, JSON만):
-{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD","input":["필요 자료1","필요 자료2"],"output":["산출물1","산출물2"],"description":"태스크 수행 방법 한 문장 설명"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
-규칙: 스프린트 ${numSprints}개, 태스크 스프린트당 4~6개, pts 1~5
-의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
-각 태스크에 반드시 포함: input(시작에 필요한 자료·선행결과·접근권한, 1~3개), output(완료시 산출물, 1~3개), description(수행방법 한 문장)
-
-스프린트 일정 (반드시 준수):
-${sprintScheduleStr}
-
-태스크 날짜 계산 규칙 (스프린트 범위 우선):
-1. 각 태스크의 startDate와 dueDate는 반드시 소속 스프린트의 startDate~endDate 범위 안에 있어야 한다
-2. 선행 태스크 없음: 스프린트 startDate부터 시작
-3. 선행 태스크 있고 같은 스프린트 내: 선행 태스크 dueDate + 1영업일
-4. 선행 태스크가 이전 스프린트 소속: 현재 스프린트 startDate부터 시작
-5. dueDate = startDate + (pts - 1)영업일. 단 스프린트 endDate를 초과할 수 없다
-6. 주말(토·일) 건너뜀
-7. 같은 담당자 병렬 태스크는 겹치지 않게 순차 배치
-8. 스프린트 내 포인트 합이 기간을 초과하면 마지막 태스크 dueDate를 스프린트 endDate로 클램핑`,
-        `고객:${cl.name||"고객"} 업종:${cl.industry||"미정"} AI친숙도:${cl.aiLevel||"초급"}
-Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
-솔루션:${solDesc||"AI 솔루션"} 도구:${tools} 예상기간:${effort}
-예산:${cl.budget||"미정"}`,
-        6000
-      );
-      let parsed=null;
+      let parsed=null,r="";
       // JSON 자동 복구: 빠진 쉼표 삽입 + 후행 쉼표 제거
       const repairJSON=str=>{
         let out='',i=0;const n=str.length;
@@ -1490,13 +1464,43 @@ Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
         }
         return null;
       };
-      // 1차: 백틱 제거 후 전체 파싱
-      const cleaned=r.replace(/```json\n?|```\n?/g,"").trim();
-      try{parsed=JSON.parse(cleaned);}catch{}
-      // 2차: 복구 후 파싱
-      if(!parsed?.sprints){try{parsed=JSON.parse(repairJSON(cleaned));}catch{}}
-      // 3차: 균형 괄호 추출
-      if(!parsed?.sprints)parsed=extractJSON(cleaned)||extractJSON(r);
+      for(let attempt=0;attempt<=1;attempt++){
+        r=await claude(
+          QUALITY_GUIDE+`당신은 Agile PM 전문가입니다. 소상공인 AI 솔루션 개발 프로젝트 플랜을 생성하세요.
+반드시 순수 JSON만 출력 (마크다운 백틱 없이, 설명 없이, JSON만):
+{"projectName":"프로젝트명","sprints":[{"name":"Sprint 1","goal":"목표","tasks":[{"id":"t1","title":"태스크명","assignee":"컨설턴트(본인)","priority":"보통","status":"백로그","pts":3,"dependencies":[],"startDate":"YYYY-MM-DD","dueDate":"YYYY-MM-DD","input":["필요 자료1","필요 자료2"],"output":["산출물1","산출물2"],"description":"태스크 수행 방법 한 문장 설명"}]}],"resources":[{"name":"컨설턴트(본인)","role":"컨설턴트(본인)"}],"velocity":20}
+규칙: 스프린트 ${numSprints}개, 태스크 스프린트당 4~6개, pts 1~5
+의존관계: 병렬 실행 가능한 태스크는 dependencies:[], 순차 실행 필요한 태스크는 선행 태스크 id 배열
+각 태스크에 반드시 포함: input(시작에 필요한 자료·선행결과·접근권한, 1~3개), output(완료시 산출물, 1~3개), description(수행방법 한 문장)
+
+스프린트 일정 (반드시 준수):
+${sprintScheduleStr}
+
+태스크 날짜 계산 규칙 (스프린트 범위 우선):
+1. 각 태스크의 startDate와 dueDate는 반드시 소속 스프린트의 startDate~endDate 범위 안에 있어야 한다
+2. 선행 태스크 없음: 스프린트 startDate부터 시작
+3. 선행 태스크 있고 같은 스프린트 내: 선행 태스크 dueDate + 1영업일
+4. 선행 태스크가 이전 스프린트 소속: 현재 스프린트 startDate부터 시작
+5. dueDate = startDate + (pts - 1)영업일. 단 스프린트 endDate를 초과할 수 없다
+6. 주말(토·일) 건너뜀
+7. 같은 담당자 병렬 태스크는 겹치지 않게 순차 배치
+8. 스프린트 내 포인트 합이 기간을 초과하면 마지막 태스크 dueDate를 스프린트 endDate로 클램핑`,
+          `고객:${cl.name||"고객"} 업종:${cl.industry||"미정"} AI친숙도:${cl.aiLevel||"초급"}
+사전조사:${researchSummary(cl)}
+Pain Point:${validPPs.map(p=>p.title).join(", ")||"미입력"}
+솔루션:${solDesc||"AI 솔루션"} 도구:${tools} 예상기간:${effort}
+예산:${cl.budget||"미정"}`+(attempt===0?"":JSON_RETRY_NOTE),
+          6000
+        );
+        // 1차: 백틱 제거 후 전체 파싱
+        const cleaned=r.replace(/```json\n?|```\n?/g,"").trim();
+        try{parsed=JSON.parse(cleaned);}catch{}
+        // 2차: 복구 후 파싱
+        if(!parsed?.sprints){try{parsed=JSON.parse(repairJSON(cleaned));}catch{}}
+        // 3차: 균형 괄호 추출
+        if(!parsed?.sprints)parsed=extractJSON(cleaned)||extractJSON(r);
+        if(parsed?.sprints)break;
+      }
       if(parsed?.sprints){
         const sprints=parsed.sprints.map((sp,i)=>{
           // 스프린트 바 날짜는 preSprintSchedules 기준으로 고정 (AI daysFromStart 무시)
@@ -2712,8 +2716,8 @@ ${selectedOpts.join("\n")||"없음"}
             const sprintPlan=(active.pm?.sprints||[]).length
               ?(active.pm.sprints.map(s=>`${s.name}: ${(s.tasks||[]).map(t=>t.title).join(", ")}`).join("\n"))
               :"스프린트 정보 없음";
-            const sys=`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.`;
-            const usr=`[확정 솔루션 제안서]\n${proposalDraftToText(active.proposalDraft)||"제안서 정보 없음"}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
+            const sys=QUALITY_GUIDE+`아래는 고객사에 확정된 AI 솔루션 제안 내용이다.\n이 제안서 내용은 절대 그대로 출력하지 마라.\n\n이 솔루션을 실제로 MVP 구현할 때 필요한 개발 조언을 아래 4가지 항목으로 작성하라.\n\n출력 형식 (아래 4개 항목을 반드시 포함):\n\n1. 모듈별 구현 순서 및 기술적 주의사항\n각 모듈/기능을 구현할 때 개발자가 알아야 할 순서, 의존관계, 기술적 제약사항을 구체적으로 작성.\n(예: API 사전 신청 필요 여부, 할당량 제한, 데이터 포맷 파싱 방법 등)\n\n2. 예상 기술 리스크 및 대응 방법\n구현 중 발생할 수 있는 기술적 문제와 각각의 대응 방법을 작성.\n(예: POS 기기 모델별 데이터 추출 방식 차이, 외부 API 변경 가능성 등)\n\n3. MVP 범위 정의\n전체 기능 중 MVP 단계에서 반드시 구현해야 할 핵심 기능과 이후 단계로 미룰 기능을 구분.\nMVP 판단 기준: 고객이 실제 업무에 바로 사용 가능한 최소 기능 세트.\n\n4. 도구·API별 사전 준비사항\n사용할 도구와 API 각각에 대해 개발 시작 전 준비해야 할 항목 목록.\n(예: 계정 생성, 비즈니스 채널 신청, 테스트 데이터 준비, 권한 설정 등)\n\n조언은 이 고객사의 솔루션에 맞게 구체적으로 작성하라. 일반론은 최소화할 것.`;
+            const usr=`[확정 솔루션 제안서]\n${proposalDraftToText(active.proposalDraft)||"제안서 정보 없음"}\n\n[사전조사]\n${researchSummary(active)}\n\n[사용 도구 및 기술]\n${effectiveTool||"도구 정보 없음"}\n\n[프로젝트 전체 기간]\n${effectiveEffort||"기간 정보 없음"}\n\n[스프린트 구성]\n${sprintPlan}`;
             aiSet("b_rv",{loading:true,result:null,error:false});
             claude(sys,usr,4000).then(r=>aiSet("b_rv",{loading:false,result:r,error:false})).catch(()=>aiSet("b_rv",{loading:false,result:null,error:true}));
           }} disabled={aiGet("b_rv").loading}>{aiGet("b_rv").loading?"⟳ 분석 중...":"🤖 AI 개발 조언"}</Btn>
@@ -2740,7 +2744,7 @@ ${selectedOpts.join("\n")||"없음"}
           {CL_B4.map(([t,s],i)=><ChkItem key={i} label={t} sub={s} checked={!!active.handoverCheck[i]} onChange={()=>updN("handoverCheck",{[i]:!active.handoverCheck[i]})}/>)}
         </Panel>
         <Panel title="케이스 스터디 기록" icon="📚">
-          <button className="btn-ai" onClick={aiGet("b_cs").loading?undefined:async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude("AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</button>
+          <button className="btn-ai" onClick={aiGet("b_cs").loading?undefined:async()=>{aiSet("b_cs",{loading:true,result:null,error:false});try{const r=await claude(QUALITY_GUIDE+"AI 컨설팅 케이스 스터디.\n[케이스 스터디]\n업종/규모:\n핵심 문제:\n적용 솔루션:\n사용 도구:\n구현 기간:\n주요 성과:\n고객 피드백:\n핵심 인사이트:",`고객:${active.name} 업종:${active.industry}\n사전조사:${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n솔루션:${chosenSol?.title}`);upd({caseStudy:r});aiSet("b_cs",{loading:false,result:"완료",error:false});}catch{aiSet("b_cs",{loading:false,result:null,error:true});}}} disabled={aiGet("b_cs").loading}>{aiGet("b_cs").loading?"⟳ 작성 중...":"✨ AI 케이스 스터디 작성"}</button>
           {active.caseStudy&&<><TA value={active.caseStudy} onChange={v=>upd({caseStudy:v})} rows={10} style={{marginTop:10}}/><Btn onClick={()=>copyT(active.caseStudy,"cs")} style={{marginTop:8}}>{copied==="cs"?"✓ 복사됨":"📋 복사"}</Btn></>}
         </Panel>
         <Panel title="프로젝트 최종 완료" icon="🏆" style={{background:[0,1,2,3,4].every(i=>active.handoverCheck[i])?C.successBg:undefined}}>
