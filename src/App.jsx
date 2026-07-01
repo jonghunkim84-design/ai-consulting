@@ -2256,7 +2256,7 @@ export default function App(){
         <Panel title="2차 미팅 재확인" icon="🔎">
           <FL c="추가 파악 내용" mt={0} opt/><TA value={active.additionalPP} onChange={v=>upd({additionalPP:v})} placeholder="2차 미팅 추가 내용..." rows={3}/>
           <FL c="예산·의사결정 메모" opt/><TA value={active.reconfirmNotes} onChange={v=>upd({reconfirmNotes:v})} placeholder="예산 범위, 의사결정자..." rows={3}/>
-          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}",`고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
+          <Btn v="teal" onClick={()=>runAIJson("dg_rc",QUALITY_GUIDE+"소상공인 AI 컨설팅 Diagnosis 재검토 전문가입니다. 순수 JSON만 출력.\n{\"checkPoints\":[{\"title\":\"확인 포인트 제목\",\"reason\":\"확인이 필요한 이유 1줄\"}],\"summary\":\"핵심 요약 1줄\"}",`고객:${active.name} 업종:${active.industry}\n[사전조사] ${researchSummary(active)}\nPP:${validPPs.map(p=>p.title).join(",")}\n추가:${active.additionalPP}`)} disabled={aiGet("dg_rc").loading} style={{marginTop:10}}>{aiGet("dg_rc").loading?"⟳ 분석 중...":"🤖 AI 추가 확인 포인트"}</Btn>
           {(()=>{const a=aiGet("dg_rc");if(a.loading)return <AIBox loading={true} color={C.teal}/>;if(a.error)return <AIBox error={true} color={C.teal}/>;const raw=a.result||active.dgRcRaw;if(raw){if(a.result&&active.dgRcRaw!==a.result)setTimeout(()=>upd({dgRcRaw:a.result}),0);let p=null;try{p=JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{}if(!p){const m=raw.match(/\{[\s\S]*\}/);if(m){try{p=JSON.parse(m[0]);}catch{}}}if(p?.checkPoints){return <div style={{borderLeft:`3px solid ${C.teal}`,background:"var(--color-background-secondary)",borderRadius:"0 8px 8px 0",padding:"12px 14px",marginTop:10,fontSize:13,lineHeight:1.8}}><div style={{fontSize:12,fontWeight:500,color:C.teal,marginBottom:8}}>✦ AI 추가 확인 포인트</div>{p.checkPoints.map((cp,i)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-primary)",borderRadius:8}}><div style={{fontSize:12,fontWeight:500,marginBottom:2}}>#{i+1} {cp.title}</div><div style={{fontSize:12,color:"var(--color-text-secondary)"}}>{cp.reason}</div></div>)}{p.summary&&<div style={{fontSize:12,color:C.success,marginTop:6}}>→ {p.summary}</div>}</div>;}return <AIBox loading={false} result={raw} error={false} color={C.teal}/>;}return null;})()}
           <FL c="2차 방문 결과 — 사장님 추가 요청 기능" mt={16} opt/>
           <TA value={active.visitFindings} onChange={v=>upd({visitFindings:v})} placeholder="2차 방문에서 사장님이 새로 요청한 기능/요구사항 (예: 재고관리도 자동화 원하심)" rows={3}/>
@@ -2361,7 +2361,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
                       try{
                         const parsed=await claudeJSON(
                           QUALITY_GUIDE+`IT 컨설턴트. 소상공인 AI 솔루션 제안서 초안을 JSON으로만 출력. 코드블록 없이 { 로 시작.\n{"solution":["개요","기능1","기능2","도구"],"scope":{"in":["범위1"],"out":["제외1"]},"wbs":["1단계","2단계","3단계"],"milestones":["마일스톤1","마일스톤2"],"org":{"vendor":["역할1"],"client":["협조1"]},"budget":["비용1","유지비"],"effect":["효과1(수치)","ROI"]}\n[클라이언트 성향]\n${personalityContext}`,
-                          `고객:${active.name} 업종:${active.industry} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
+                          `고객:${active.name} 업종:${active.industry} 사전조사:${researchSummary(active)} PP:${validPPs.map(p=>p.title).join(",")} 솔루션:${solDesc} 도구:${tools} 예산:${active.budget} 일정:${active.timeline}`,
                           2000
                         );
                         upd({proposalDraft:parsed});
@@ -2522,6 +2522,7 @@ AI친숙도: ${active.aiLevel||"미입력"}
 "budget":["주요 비용 항목: XX만원","월 유지비: XX만원","유지보수 조건"],
 "effect":["정량 효과1 (수치)","정량 효과2 (수치)","ROI: X개월 내 투자 회수"]}`,
                       `고객:${active.name} 업종:${active.industry} 규모:${active.size}
+사전조사: ${researchSummary(active)}
 PP:${validPPs.map(p=>`${p.title}(영향:${p.impact})`).join(" / ")||"미입력"}
 솔루션:${solDesc} 도구:${tools}
 예산:${active.budget} 일정:${active.timeline}
